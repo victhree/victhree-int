@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Interview Analysis | VicThree SSB Interview Trainer</title>
-<meta name="description" content="Your consolidated SSB interview assessment: OLQs reflected, consistency against your PIQ and perception report, and a downloadable report." />
+<title>Final Report | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Your complete SSB report: consolidated psychology analysis plus the personal interview assessment, with a downloadable PDF." />
 <link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
 <link rel="stylesheet" href="../assets/styles.css?v=1" />
 <link rel="stylesheet" href="../assets/iv.css?v=1" />
@@ -15,28 +15,40 @@
 </header>
 
 <main>
-  <nav id="journey" class="journey" data-base="../" data-current="assessment"></nav>
+  <nav id="journey" class="journey" data-base="../" data-current="report"></nav>
   <div class="wrap">
-    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Interview Analysis</p>
-    <h1>Interview Analysis</h1>
-    <p class="lede">Your consolidated read of the interview: the Officer-Like Qualities you reflected, how consistent your answers were with your PIQ and perception report, and question-by-question guidance.</p>
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Final Report</p>
+    <h1>Final Report</h1>
+    <p class="lede">Your complete board report, revealed only now: the psychology analysis you did not see earlier, plus the assessment of your personal interview and how consistent your answers were with your psychology profile and PIQ.</p>
 
     <div id="gate" class="gate" style="display:none">
       <h3>No interview yet</h3>
-      <p>Complete a personal interview first, then come back for your analysis.</p>
+      <p>Your psychology analysis is released together with your interview assessment. Complete the personal interview first, then come back for your full report.</p>
       <a class="btn primary" href="../interview/index.html">Go to the interview →</a>
     </div>
 
     <div id="controls" style="display:none">
       <div class="t-toolbar">
-        <button id="generate" class="btn primary">Generate Interview Analysis</button>
+        <button id="generate" class="btn primary">Generate my final report</button>
         <button id="regenerate" class="btn ghost" style="display:none">Regenerate</button>
         <button id="download" class="btn primary ai-dl" style="display:none">↓ Download PDF</button>
       </div>
     </div>
 
     <p id="status" class="ai-status" style="font-family:var(--sans)"></p>
-    <div id="assess-body" class="ai-box" style="display:none;border-left-color:var(--navy)"></div>
+
+    <!-- Psychology analysis (revealed here for the first time) -->
+    <div id="psy-section" style="display:none">
+      <h2>Psychology assessment</h2>
+      <p class="muted small">Consolidated from the tests you took before the interview.</p>
+      <div id="psy-body" class="ai-box" style="border-left-color:var(--gold)"></div>
+    </div>
+
+    <!-- Interview analysis -->
+    <div id="iv-section" style="display:none">
+      <h2>Interview assessment</h2>
+      <div id="assess-body" class="ai-box" style="border-left-color:var(--navy)"></div>
+    </div>
 
     <div id="next-nav" class="page-foot-nav" style="display:none">
       <a href="../interview/index.html">← Interview</a>
@@ -50,7 +62,7 @@
 <script src="../assets/vendor/jspdf.umd.min.js"></script>
 <script src="../assets/config.js?v=1"></script>
 <script src="../assets/store.js?v=1"></script>
-<script src="../assets/journey.js?v=1"></script>
+<script src="../assets/journey.js?v=2"></script>
 <script>
 (function () {
   var Store = window.V3Store;
@@ -60,13 +72,66 @@
   var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 
   function history() { return (Store.getInterview() || { history: [] }).history; }
+  function post(payload) {
+    return fetch(AI, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) { if (d && d.error) throw new Error(d.error); return d; });
+  }
 
+  // Build the consolidated Perception Report if it wasn't built during the interview.
+  function ensureReport() {
+    if (Store.getReport()) return Promise.resolve();
+    var list = Store.analysesList();
+    if (!list.length) return Promise.resolve();
+    return post({ mode: "REPORT", analyses: list }).then(function (r) { Store.setReport(r); }).catch(function () {});
+  }
+
+  var TEST_NAMES = { PPDT: "Picture Perception (PPDT)", TAT: "Thematic Apperception (TAT)", WAT: "Word Association (WAT)", SRT: "Situation Reaction (SRT)", SDT: "Self-Description (SDT)" };
+
+  /* ---------- psychology section ---------- */
+  function bulletCard(cls, title, arr) {
+    var c = el("div", "ai-card " + cls); c.appendChild(el("h4", null, title));
+    var u = el("ul"); arr.forEach(function (s) { u.appendChild(el("li", null, s)); }); c.appendChild(u);
+    return c;
+  }
+  function renderPsychology() {
+    var R = Store.getReport();
+    var analyses = Store.getAnalyses();
+    var testKeys = Object.keys(analyses);
+    if (!R && !testKeys.length) return; // nothing to show
+
+    var body = $("psy-body"); body.innerHTML = "";
+    if (R) {
+      if (R.temperament) { var t = el("div", "ai-card snapshot"); t.appendChild(el("h4", null, "Temperament")); t.appendChild(el("p", null, R.temperament)); body.appendChild(t); }
+      if (R.summary) { var s = el("div", "ai-card snapshot"); s.appendChild(el("h4", null, "Consolidated read")); s.appendChild(el("p", null, R.summary)); body.appendChild(s); }
+      if (R.olqs_strong && R.olqs_strong.length) body.appendChild(bulletCard("reflected", "Dominant Officer-Like Qualities", R.olqs_strong));
+      if (R.olqs_to_work_on && R.olqs_to_work_on.length) body.appendChild(bulletCard("work", "Areas to strengthen", R.olqs_to_work_on));
+      if (R.probe_areas && R.probe_areas.length) body.appendChild(bulletCard("consistency-card", "Areas the board explored in your interview", R.probe_areas));
+    }
+
+    // Per-test breakdown (collapsed)
+    if (testKeys.length) {
+      var order = ["PPDT", "TAT", "WAT", "SRT", "SDT"];
+      order.forEach(function (k) {
+        var a = analyses[k]; if (!a) return;
+        var det = document.createElement("details"); det.className = "heur";
+        var sum = document.createElement("summary"); sum.textContent = (TEST_NAMES[k] || k) + " — test analysis"; det.appendChild(sum);
+        if (a.summary) det.appendChild(el("p", null, a.summary));
+        if (a.olqs_reflected && a.olqs_reflected.length) { det.appendChild(el("p", "small muted", "OLQs reflected:")); var u1 = el("ul"); a.olqs_reflected.forEach(function (x) { u1.appendChild(el("li", null, x)); }); det.appendChild(u1); }
+        if (a.olqs_to_work_on && a.olqs_to_work_on.length) { det.appendChild(el("p", "small muted", "To work on:")); var u2 = el("ul"); a.olqs_to_work_on.forEach(function (x) { u2.appendChild(el("li", null, x)); }); det.appendChild(u2); }
+        body.appendChild(det);
+      });
+    }
+    $("psy-section").style.display = "block";
+  }
+
+  /* ---------- interview section ---------- */
   function renderAssessment(A) {
-    var box = $("assess-body"); box.innerHTML = ""; box.style.display = "block";
+    var box = $("assess-body"); box.innerHTML = "";
     if (A.summary) { var c = el("div", "ai-card snapshot"); c.appendChild(el("h4", null, "Officer's assessment")); c.appendChild(el("p", null, A.summary)); box.appendChild(c); }
-    if (A.olqs_reflected && A.olqs_reflected.length) { var c2 = el("div", "ai-card reflected"); c2.appendChild(el("h4", null, "Officer-Like Qualities reflected")); var u = el("ul"); A.olqs_reflected.forEach(function (s) { u.appendChild(el("li", null, s)); }); c2.appendChild(u); box.appendChild(c2); }
-    if (A.olqs_to_work_on && A.olqs_to_work_on.length) { var c3 = el("div", "ai-card work"); c3.appendChild(el("h4", null, "OLQs to work on")); var u2 = el("ul"); A.olqs_to_work_on.forEach(function (s) { u2.appendChild(el("li", null, s)); }); c3.appendChild(u2); box.appendChild(c3); }
-    if (A.consistency && A.consistency.length) { var c4 = el("div", "ai-card consistency-card"); c4.appendChild(el("h4", null, "Consistency vs PIQ & perception report")); var u3 = el("ul"); A.consistency.forEach(function (s) { u3.appendChild(el("li", null, s)); }); c4.appendChild(u3); box.appendChild(c4); }
+    if (A.olqs_reflected && A.olqs_reflected.length) box.appendChild(bulletCard("reflected", "Officer-Like Qualities reflected", A.olqs_reflected));
+    if (A.olqs_to_work_on && A.olqs_to_work_on.length) box.appendChild(bulletCard("work", "OLQs to work on", A.olqs_to_work_on));
+    if (A.consistency && A.consistency.length) box.appendChild(bulletCard("consistency-card", "Consistency vs your psychology profile & PIQ", A.consistency));
     if (A.items && A.items.length) {
       var head = el("h3", null, "Question by question"); head.style.marginTop = "18px"; box.appendChild(head);
       var H = history();
@@ -80,6 +145,7 @@
         box.appendChild(d);
       });
     }
+    $("iv-section").style.display = "block";
     $("download").style.display = "inline-block";
     $("regenerate").style.display = "inline-block";
     $("generate").style.display = "none";
@@ -87,16 +153,15 @@
   }
 
   function generate() {
-    if (!AI) { $("status").textContent = "The analysis service is not configured. Add your Worker URL in assets/config.js."; return; }
+    if (!AI) { $("status").textContent = "The report service is not configured. Add your Worker URL in assets/config.js."; return; }
     var H = history();
     if (!H.length) return;
-    $("status").innerHTML = '<span class="spinner"></span>The board is preparing your Interview Analysis…';
+    $("status").innerHTML = '<span class="spinner"></span>The board is preparing your final report…';
     $("generate").disabled = true; $("regenerate").disabled = true;
-    fetch(AI, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "IV", action: "assess", piq: Store.getPiq(), report: Store.getReport(), history: H }) })
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    ensureReport()
+      .then(function () { renderPsychology(); })
+      .then(function () { return post({ mode: "IV", action: "assess", piq: Store.getPiq(), report: Store.getReport(), history: H }); })
       .then(function (data) {
-        if (data && data.error) throw new Error(data.error);
         $("status").textContent = "";
         Store.setAssessment(data);
         renderAssessment(data);
@@ -104,7 +169,7 @@
         window.V3Journey.renderTracker();
       })
       .catch(function () {
-        $("status").textContent = "The analysis could not be generated right now. Please check your connection and try again.";
+        $("status").textContent = "The report could not be generated right now. Please check your connection and try again.";
         $("generate").disabled = false; $("regenerate").disabled = false;
       });
   }
@@ -124,7 +189,8 @@
   function buildPdf(banner, bw, bh) {
     var JS = window.jspdf && window.jspdf.jsPDF;
     if (!JS) { alert("The PDF tool didn't finish loading. Please reload and try again."); return; }
-    var A = Store.getAssessment(); if (!A) return;
+    var A = Store.getAssessment();
+    var R = Store.getReport();
     var H = history();
     var when = new Date().toLocaleString();
     var who = Store.activeProfile();
@@ -163,6 +229,7 @@
       bu.forEach(function (t) { doc.text(t, x + pad, cy + 9); cy += lhB; });
       y += h + 13;
     }
+    function sectionTitle(str) { text(str, { font: "times", style: "bold", size: 15, color: navy, lh: 20, gap: 2 }); }
 
     if (banner && bw > 0 && bh > 0) {
       var bpad = 14, iw = cw - 2 * bpad, ih = iw * (bh / bw), rectH = ih + 2 * bpad;
@@ -171,39 +238,57 @@
       try { doc.addImage(banner, "PNG", x + bpad, y + bpad, iw, ih); } catch (e) {}
       y += rectH + 16;
     }
-    text("Interview Analysis", { font: "times", style: "bold", size: 22, color: navy, lh: 26 });
-    text("Candidate: " + who + "   ·   " + when, { font: "helvetica", style: "normal", size: 9.5, color: soft, lh: 14, gap: 4 });
-    text("Personal interview · " + H.length + " questions answered.", { font: "times", style: "normal", size: 11.5, color: ink, gap: 10 });
+    text("SSB Board Report", { font: "times", style: "bold", size: 22, color: navy, lh: 26 });
+    text("Candidate: " + who + "   ·   " + when, { font: "helvetica", style: "normal", size: 9.5, color: soft, lh: 14, gap: 10 });
 
-    if (A.summary) card([238, 242, 248], navy, "Officer's assessment", A.summary, null);
-    if (A.olqs_reflected && A.olqs_reflected.length) card([238, 244, 236], green, "Officer-Like Qualities reflected", null, A.olqs_reflected);
-    if (A.olqs_to_work_on && A.olqs_to_work_on.length) card([248, 242, 226], gold2, "OLQs to work on", null, A.olqs_to_work_on);
-    if (A.consistency && A.consistency.length) card([248, 242, 226], gold2, "Consistency vs PIQ & perception report", null, A.consistency);
+    // --- Psychology ---
+    if (R) {
+      sectionTitle("Psychology assessment");
+      if (R.temperament) card([238, 242, 248], navy, "Temperament", R.temperament, null);
+      if (R.summary) card([238, 242, 248], navy, "Consolidated read", R.summary, null);
+      if (R.olqs_strong && R.olqs_strong.length) card([238, 244, 236], green, "Dominant Officer-Like Qualities", null, R.olqs_strong);
+      if (R.olqs_to_work_on && R.olqs_to_work_on.length) card([248, 242, 226], gold2, "Areas to strengthen", null, R.olqs_to_work_on);
+      y += 4;
+    }
 
-    y += 4;
-    text("Question by question", { font: "times", style: "bold", size: 15, color: navy, lh: 20, gap: 2 });
-    (A.items || []).forEach(function (it, i) {
-      var ans = (H[(it.n || 0) - 1] || {}).a;
-      br(30);
-      y += 5; doc.setDrawColor(228, 225, 214); doc.setLineWidth(0.6); doc.line(x, y, x + cw, y); y += 9;
-      text("#" + (it.n || (i + 1)) + "   " + (it.prompt || ""), { font: "helvetica", style: "bold", size: 10.5, color: navy, lh: 14 });
-      text("Your answer: " + (ans && ans.trim() ? ans : "(stayed silent)"), { font: "times", style: "normal", size: 11, color: soft });
-      if (it.comment) text(it.comment, { font: "times", style: "normal", size: 11, color: ink });
-      if (it.suggestion) text("A stronger answer: " + it.suggestion, { font: "times", style: "italic", size: 11, color: green });
-      y += 3;
-    });
+    // --- Interview ---
+    if (A) {
+      sectionTitle("Interview assessment");
+      if (A.summary) card([238, 242, 248], navy, "Officer's assessment", A.summary, null);
+      if (A.olqs_reflected && A.olqs_reflected.length) card([238, 244, 236], green, "Officer-Like Qualities reflected", null, A.olqs_reflected);
+      if (A.olqs_to_work_on && A.olqs_to_work_on.length) card([248, 242, 226], gold2, "OLQs to work on", null, A.olqs_to_work_on);
+      if (A.consistency && A.consistency.length) card([248, 242, 226], gold2, "Consistency vs psychology profile & PIQ", null, A.consistency);
+
+      y += 4;
+      sectionTitle("Interview, question by question");
+      (A.items || []).forEach(function (it, i) {
+        var ans = (H[(it.n || 0) - 1] || {}).a;
+        br(30);
+        y += 5; doc.setDrawColor(228, 225, 214); doc.setLineWidth(0.6); doc.line(x, y, x + cw, y); y += 9;
+        text("#" + (it.n || (i + 1)) + "   " + (it.prompt || ""), { font: "helvetica", style: "bold", size: 10.5, color: navy, lh: 14 });
+        text("Your answer: " + (ans && ans.trim() ? ans : "(stayed silent)"), { font: "times", style: "normal", size: 11, color: soft });
+        if (it.comment) text(it.comment, { font: "times", style: "normal", size: 11, color: ink });
+        if (it.suggestion) text("A stronger answer: " + it.suggestion, { font: "times", style: "italic", size: 11, color: green });
+        y += 3;
+      });
+    }
 
     y += 8; br(30);
-    text("There are no official correct answers in the SSB interview. This report is guidance to help you prepare, not a verdict.", { font: "helvetica", style: "normal", size: 9, color: soft, lh: 13 });
+    text("There are no official correct answers in the SSB. This report is guidance to help you prepare, not a verdict.", { font: "helvetica", style: "normal", size: 9, color: soft, lh: 13 });
 
-    doc.save("VicThree-SSB-Interview-Analysis.pdf");
+    doc.save("VicThree-SSB-Final-Report.pdf");
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     if (!history().length) { $("gate").style.display = "block"; return; }
     $("controls").style.display = "block";
+
+    // Show the psychology analysis straight away (built during the interview).
+    renderPsychology();
+
     var existing = Store.getAssessment();
     if (existing) { renderAssessment(existing); }
+
     $("generate").addEventListener("click", generate);
     $("regenerate").addEventListener("click", generate);
     $("download").addEventListener("click", downloadReport);

@@ -61,7 +61,7 @@
 </footer>
 
 <script src="assets/store.js?v=1"></script>
-<script src="assets/journey.js?v=1"></script>
+<script src="assets/journey.js?v=2"></script>
 <script>
 (function () {
   var Store = window.V3Store;
@@ -100,17 +100,18 @@
     enterDash();
   }
 
+  // Journey: Tests -> PIQ -> Interview -> Report. The psychology analysis is
+  // NOT shown after the tests; it is revealed (with the interview assessment)
+  // only in the final Report.
   var STEPS = [
     { key: "tests", n: 1, title: "Psychology Tests", href: "tests/index.html",
-      desc: "Run the battery, PPDT, TAT, WAT, SRT and SDT, so the board can read your personality." },
-    { key: "report", n: 2, title: "Perception Report", href: "perception/index.html",
-      desc: "Merge every test into one consolidated read of your temperament and Officer-Like Qualities." },
-    { key: "piq", n: 3, title: "PIQ Form", href: "piq/index.html",
+      desc: "Run the battery, PPDT, TAT, WAT, SRT and SDT. Your responses are recorded for the board; the analysis is kept for your final report." },
+    { key: "piq", n: 2, title: "PIQ Form", href: "piq/index.html",
       desc: "Fill your Personal Information Questionnaire, the factual basis the officer interviews you on." },
-    { key: "interview", n: 4, title: "Personal Interview", href: "interview/index.html",
-      desc: "Face a time-bound interview that adapts to your answers, PIQ and perception report." },
-    { key: "assessment", n: 5, title: "Interview Analysis", href: "report/index.html",
-      desc: "Get your consolidated assessment, consistency notes and a downloadable report." }
+    { key: "interview", n: 3, title: "Personal Interview", href: "interview/index.html",
+      desc: "Face a time-bound interview that adapts to your answers, PIQ and psychology profile." },
+    { key: "report", n: 4, title: "Final Report", href: "report/index.html",
+      desc: "Your complete report: psychology analysis plus the interview assessment, with a downloadable PDF." }
   ];
 
   function statusFor(key, p) {
@@ -119,7 +120,6 @@
       if (p.tests > 0) return { cls: "active", txt: "In progress · " + p.tests + " / " + p.testsTotal };
       return { cls: "", txt: "Not started" };
     }
-    if (key === "report")     return p.report ? { cls: "done", txt: "Ready" } : (p.tests > 0 ? { cls: "active", txt: "Ready to build" } : { cls: "locked", txt: "Do a test first" });
     if (key === "piq")        return p.piq ? { cls: "done", txt: "Saved" } : { cls: "", txt: "Not started" };
     if (key === "interview")  {
       if (!p.piq) return { cls: "locked", txt: "Fill your PIQ first" };
@@ -127,7 +127,7 @@
       if (p.interview === "in-progress") return { cls: "active", txt: "In progress · resume" };
       return { cls: "", txt: "Ready to begin" };
     }
-    if (key === "assessment") {
+    if (key === "report") {
       if (p.assessment) return { cls: "done", txt: "Ready" };
       if (p.interview !== "none") return { cls: "active", txt: "Generate from your interview" };
       return { cls: "locked", txt: "Finish the interview first" };

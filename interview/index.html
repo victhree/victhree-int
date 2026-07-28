@@ -70,8 +70,8 @@
 
       <div id="done-card" class="iv-intro-card" style="display:none">
         <h2>Interview complete</h2>
-        <p>You answered <b id="done-count">0</b> questions. Your responses are saved. The board will now prepare your Interview Analysis.</p>
-        <a class="btn primary" href="../report/index.html">See your Interview Analysis →</a>
+        <p>You answered <b id="done-count">0</b> questions. Your responses are saved. The board will now prepare your final report, combining your psychology analysis and your interview assessment.</p>
+        <a class="btn primary" href="../report/index.html">See your final report →</a>
       </div>
     </section>
   </div>
@@ -81,7 +81,7 @@
 
 <script src="../assets/config.js?v=1"></script>
 <script src="../assets/store.js?v=1"></script>
-<script src="../assets/journey.js?v=1"></script>
+<script src="../assets/journey.js?v=2"></script>
 <script>
 (function () {
   var Store = window.V3Store;
@@ -104,6 +104,17 @@
       .then(function (d) { if (d && d.error) throw new Error(d.error); return d; });
   }
   function ivBase() { return { piq: Store.getPiq(), report: Store.getReport() }; }
+
+  // Build the Perception Report silently from the saved psychology analyses.
+  // It is never shown here; it feeds the interview and later the final report.
+  function ensureReport() {
+    if (Store.getReport()) return Promise.resolve();
+    var list = Store.analysesList();
+    if (!list.length) return Promise.resolve(); // no tests taken — interview still runs off the PIQ
+    return post({ mode: "REPORT", analyses: list })
+      .then(function (r) { Store.setReport(r); })
+      .catch(function () {}); // proceed even if the report can't be built
+  }
 
   function ensurePlan() {
     var plan = Store.getPlan();
@@ -230,7 +241,7 @@
     $("begin").disabled = true; $("resume").disabled = true;
     $("prep-status").style.display = "block";
     $("prep-status").innerHTML = '<span class="spinner"></span>The officer is reviewing your file…';
-    ensurePlan().then(function () { then(); });
+    ensureReport().then(ensurePlan).then(function () { then(); });
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -239,9 +250,10 @@
     $("fact-q").textContent = MAXQ;
     $("fact-t").textContent = SPQ + "s";
     $("fact-total").textContent = "~" + Math.round(MAXQ * SPQ / 60) + "m";
-    $("report-note").textContent = Store.getReport()
-      ? "Your perception report is loaded, the officer will cross-check your answers against it."
-      : "Tip: build your Perception Report first so the officer can cross-check your answers against your psychology profile.";
+    var testsTaken = Store.analysesList().length;
+    $("report-note").textContent = testsTaken
+      ? "The officer has read your psychology profile and will cross-check your answers against it. Your psychology analysis stays hidden until your final report."
+      : "Tip: take the psychology tests first so the officer can cross-check your answers against your profile. You can still interview on your PIQ alone.";
 
     $("intro").style.display = "block";
 
@@ -252,7 +264,7 @@
       $("begin").style.display = "none";
       $("resume").style.display = "none";
       $("startover").style.display = "inline-block";
-      $("report-note").innerHTML = 'You have completed this interview. <a href="../report/index.html">See your Interview Analysis →</a>';
+      $("report-note").innerHTML = 'You have completed this interview. <a href="../report/index.html">See your final report →</a>';
     } else if (inProgress) {
       $("begin").style.display = "none";
       $("resume").style.display = "inline-block";

@@ -11,20 +11,21 @@
   "use strict";
   var Store = window.V3Store;
 
+  // The Perception Report is now built silently and is not a candidate-facing
+  // step: the psychology analysis is revealed only in the final Report, after
+  // the interview. Journey: Tests -> PIQ -> Interview -> Report.
   var STEPS = [
-    { key: "tests",      label: "Tests",      href: "tests/index.html" },
-    { key: "report",     label: "Report",     href: "perception/index.html" },
-    { key: "piq",        label: "PIQ",        href: "piq/index.html" },
-    { key: "interview",  label: "Interview",  href: "interview/index.html" },
-    { key: "assessment", label: "Assessment", href: "report/index.html" }
+    { key: "tests",     label: "Tests",     href: "tests/index.html" },
+    { key: "piq",       label: "PIQ",       href: "piq/index.html" },
+    { key: "interview", label: "Interview", href: "interview/index.html" },
+    { key: "report",    label: "Report",    href: "report/index.html" }
   ];
 
   function stateFor(key, p) {
-    if (key === "tests")      return p.tests >= p.testsTotal ? "done" : (p.tests > 0 ? "partial" : "");
-    if (key === "report")     return p.report ? "done" : "";
-    if (key === "piq")        return p.piq ? "done" : "";
-    if (key === "interview")  return p.interview === "done" ? "done" : (p.interview === "in-progress" ? "partial" : "");
-    if (key === "assessment") return p.assessment ? "done" : "";
+    if (key === "tests")     return p.tests >= p.testsTotal ? "done" : (p.tests > 0 ? "partial" : "");
+    if (key === "piq")       return p.piq ? "done" : "";
+    if (key === "interview") return p.interview === "done" ? "done" : (p.interview === "in-progress" ? "partial" : "");
+    if (key === "report")    return p.assessment ? "done" : "";
     return "";
   }
   function dotFor(key, st, idx) {

@@ -286,17 +286,38 @@
       im.src=url;
     });
   }
+  // When CFG.hideAnalysis is set, the analysis is still fetched and saved to the
+  // profile (so it can feed the interview and the final report), but it is NOT
+  // shown to the candidate here — only a "recorded" note.
+  function saveAnalysis(data){
+    S.analysis = (data && typeof data === "object") ? data : null;
+    if(S.analysis && typeof CFG.onAnalysis === "function"){ try{ CFG.onAnalysis(CFG.mode, S.analysis); }catch(e){} }
+  }
+  function showSavedNote(){
+    var results=$("t-results"); if(!results) return;
+    var note=$("t-saved");
+    if(!note){
+      note=el("div","callout sop"); note.id="t-saved";
+      note.appendChild(el("p",null,"Your responses have been recorded. Your psychology analysis is not shown now — it is included in your final report, after the interview."));
+      var stats=$("t-stats");
+      if(stats && stats.parentNode) stats.parentNode.insertBefore(note, stats.nextSibling);
+      else results.insertBefore(note, results.firstChild);
+    }
+    note.style.display="block";
+  }
   function requestAI(){
-    var box=$("t-ai"); box.style.display="block";
+    var hide=!!CFG.hideAnalysis;
+    var box=$("t-ai"); if(box) box.style.display = hide ? "none" : "block";
     var status=$("ai-status");
-    status.innerHTML='<span class="spinner"></span>Analysing your responses… this may take a few moments.';
-    $("ai-body").innerHTML="";
+    if(!hide && status) status.innerHTML='<span class="spinner"></span>Analysing your responses… this may take a few moments.';
+    if($("ai-body")) $("ai-body").innerHTML="";
+    if(hide) showSavedNote();
     var items=S.responses.map(function(r,i){ return { n:i+1, prompt:promptOf(r.item), title:(r.item&&r.item.title)||undefined, tag:tagOf(r.item), response:r.text, seconds:r.seconds }; });
     var send=function(){
       fetch(AI, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ mode:CFG.mode, items:items }) })
         .then(function(res){ if(!res.ok) throw new Error("HTTP "+res.status); return res.json(); })
-        .then(renderAI)
-        .catch(function(err){ status.textContent="Your performance analysis isn't available right now. Your self-review below still works."; });
+        .then(function(data){ saveAnalysis(data); if(!hide) renderAI(data); })
+        .catch(function(err){ if(!hide && status) status.textContent="Your performance analysis isn't available right now. Your self-review below still works."; });
     };
     // For picture tests, attach the (downscaled) picture each story was written from.
     if(CFG.image){
@@ -310,9 +331,6 @@
     $("ai-status").textContent="";
     var body=$("ai-body"); body.innerHTML="";
     S.analysis = (data && typeof data === "object") ? data : null;
-    // Journey hook: let the host page persist this test's structured analysis
-    // to the candidate's profile (used later to build the Perception Report).
-    if(S.analysis && typeof CFG.onAnalysis === "function"){ try{ CFG.onAnalysis(CFG.mode, S.analysis); }catch(e){} }
     if(typeof data==="string"){ body.appendChild(el("p",null,data)); return; }
     if(data.summary){ var c1=el("div","ai-card snapshot"); c1.appendChild(el("h4",null,"Personality snapshot")); c1.appendChild(el("p",null,data.summary)); body.appendChild(c1); }
     var reflected = data.olqs_reflected || data.strengths;

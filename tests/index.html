@@ -21,14 +21,14 @@
   <div class="wrap">
     <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Psychology Tests</p>
     <h1>Psychology Tests</h1>
-    <p class="lede">Take each test the way you would on the board. When the analysis returns, it is saved to your profile and feeds your consolidated Perception Report. You can retake any test; the latest analysis is kept.</p>
+    <p class="lede">Take each test the way you would on the board. Your responses are recorded and read by the board, but the analysis is not shown now: it is revealed, together with your interview assessment, in your final report after the interview. You can retake any test; the latest attempt is kept.</p>
 
     <div class="battery" id="battery"></div>
 
     <p class="muted small" id="hint"></p>
     <div class="page-foot-nav">
       <a href="../index.html">← Dashboard</a>
-      <a href="../perception/index.html">Perception Report →</a>
+      <a href="../piq/index.html">Next: PIQ →</a>
     </div>
   </div>
 </main>
@@ -38,7 +38,7 @@
 </footer>
 
 <script src="../assets/store.js?v=1"></script>
-<script src="../assets/journey.js?v=1"></script>
+<script src="../assets/journey.js?v=2"></script>
 <script>
 (function () {
   var Store = window.V3Store;
@@ -65,7 +65,7 @@
       card.innerHTML = '<span class="batt-tick">✓ done</span><h3>' + t.name + '</h3><span class="card-abbr">' + t.key + '</span>';
       host.appendChild(card);
     });
-    document.getElementById("hint").textContent = done + " of " + TESTS.length + " tests analysed. You can build the Perception Report once at least one test is done, but all five give the fullest read.";
+    document.getElementById("hint").textContent = done + " of " + TESTS.length + " tests recorded. All five give the board the fullest read of you before the interview.";
   });
 })();
 </script>
