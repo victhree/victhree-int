@@ -95,7 +95,13 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 
-  var T = { remaining: 0, tick: null, startTs: 0, current: null, busy: false };
+  // baseQ  : pre-generated questions from the plan (asked with no waiting)
+  // followQ: follow-ups produced in the BACKGROUND from earlier answers; each
+  //          carries `after` = history length when it was queued, so it is only
+  //          served at least one question later (the officer "comes back to it").
+  var T = { remaining: 0, tick: null, startTs: 0, current: null, busy: false,
+            baseQ: [], followQ: [], refilling: false, fetching: false };
+  var INITIAL_BATCH = 12, REFILL_BATCH = 10, LOW_WATER = 5;
 
   /* ---------- worker calls ---------- */
   function post(payload) {
@@ -165,8 +171,77 @@
     t.classList.toggle("low", T.remaining <= (big ? 20 : 5));
   }
 
-  /* ---------- loop ---------- */
-  function nextQuestion() {
+  /* ---------- question pipeline ---------- */
+  function historyLen() { return (Store.getInterview() || { history: [] }).history.length; }
+  function askedTexts() {
+    var iv = Store.getInterview() || { history: [] };
+    var t = iv.history.map(function (h) { return h.q; });
+    T.baseQ.forEach(function (q) { t.push(q.question); });
+    T.followQ.forEach(function (q) { t.push(q.question); });
+    return t;
+  }
+  function queuedCount() { return T.baseQ.length + T.followQ.length; }
+
+  // Pre-generate a batch of plan-based questions (does not depend on any answer),
+  // so the next question is always ready and the student never waits.
+  function fetchBaseBatch(count) {
+    if (T.fetching) return Promise.resolve();
+    T.fetching = true;
+    var b = ivBase();
+    return post({ mode: "IV", action: "questions", piq: b.piq, report: b.report, plan: Store.getPlan(),
+                  count: count, avoid: askedTexts() })
+      .then(function (d) {
+        T.fetching = false;
+        var qs = (d && d.questions) || [];
+        qs.forEach(function (q) { if (q && q.question) T.baseQ.push({ question: q.question, targets: q.targets || null }); });
+        return qs.length;
+      })
+      .catch(function () { T.fetching = false; return 0; }); // fall back to legacy single-question fetch
+  }
+  function maybeRefill() {
+    if (T.refilling) return;
+    if (queuedCount() >= LOW_WATER) return;
+    if (historyLen() + queuedCount() >= MAXQ) return; // enough to finish
+    T.refilling = true;
+    fetchBaseBatch(REFILL_BATCH).then(function () { T.refilling = false; });
+  }
+
+  // In the BACKGROUND: analyse the answer just given and, if it is worth digging
+  // into, produce ONE follow-up to be asked a little later in the interview.
+  function queueFollowup(turn, afterLen) {
+    if (historyLen() + queuedCount() >= MAXQ) return; // no room left
+    var b = ivBase();
+    post({ mode: "IV", action: "followup", piq: b.piq, report: b.report, plan: Store.getPlan(),
+           turn: turn, history: (Store.getInterview() || { history: [] }).history })
+      .then(function (d) {
+        if (d && d.followup && d.question && !T.done) {
+          if (historyLen() + queuedCount() < MAXQ) {
+            T.followQ.push({ question: d.question, targets: d.targets || null, after: afterLen });
+          }
+        }
+      })
+      .catch(function () {}); // a missed follow-up is harmless; base questions continue
+  }
+
+  // Serve the next question instantly from the queues. A follow-up is only served
+  // once at least one further question has been asked since it was queued.
+  function serveNext() {
+    if (historyLen() >= MAXQ) { finishInterview(); return; }
+    var now = historyLen();
+    var q = null;
+    for (var i = 0; i < T.followQ.length; i++) {
+      if (T.followQ[i].after < now) { q = T.followQ.splice(i, 1)[0]; break; }
+    }
+    if (!q && T.baseQ.length) q = T.baseQ.shift();
+    if (!q && T.followQ.length) q = T.followQ.shift(); // nothing else ready — use any follow-up
+    if (!q) { fallbackFetch(); return; }               // queues empty — one-off fetch (rare)
+    renderLive(q.question, q.targets);
+    maybeRefill();
+  }
+
+  // Fallback only: queues were empty (e.g. worker without the new actions, or a
+  // slow batch). Fetch a single question the old way, showing a brief wait.
+  function fallbackFetch() {
     var iv = Store.getInterview() || { history: [] };
     if (iv.history.length >= MAXQ) { finishInterview(); return; }
     $("live").style.display = "none";
@@ -186,7 +261,7 @@
         var retry = el("div", "iv-thinking");
         retry.appendChild(document.createTextNode("The connection dropped. "));
         var b2 = el("button", "link-btn", "Try the next question again");
-        b2.onclick = function () { retry.parentNode.removeChild(retry); nextQuestion(); };
+        b2.onclick = function () { retry.parentNode.removeChild(retry); serveNext(); };
         retry.appendChild(b2);
         $("stage").insertBefore(retry, $("done-card"));
       });
@@ -209,15 +284,21 @@
     clearInterval(T.tick);
     var used = Math.min(SPQ, Math.round((performance.now() - T.startTs) / 1000));
     var ans = $("live-a").value.trim();
-    Store.pushTurn({ q: T.current, a: ans, seconds: used, targets: null });
+    var turn = { q: T.current, a: ans, seconds: used, targets: null };
+    Store.pushTurn(turn);
     T.current = null;
     renderTranscript();
-    nextQuestion();
+    // Analyse this answer in the BACKGROUND and, if worth it, line up a follow-up
+    // for later — without making the student wait.
+    queueFollowup(turn, historyLen());
+    // Serve the next question immediately from the queue (no loading wait).
+    serveNext();
   }
 
   function finishInterview() {
     clearInterval(T.tick);
     var iv = Store.getInterview(); iv.done = true; Store.setInterview(iv);
+    T.done = true;
     $("live").style.display = "none";
     $("thinking").style.display = "none";
     $("iv-timer").textContent = "done";
@@ -234,14 +315,19 @@
     $("stage").style.display = "block";
     renderTranscript();
     $("prep-status").style.display = "none";
-    nextQuestion();
+    serveNext();
   }
   function prep(then) {
     if (!AI) { $("prep-status").style.display = "block"; $("prep-status").textContent = "The interview service is not configured. Add your Worker URL in assets/config.js."; return; }
     $("begin").disabled = true; $("resume").disabled = true;
     $("prep-status").style.display = "block";
     $("prep-status").innerHTML = '<span class="spinner"></span>The officer is reviewing your file…';
-    ensureReport().then(ensurePlan).then(function () { then(); });
+    // Prepare silently up front: perception report -> interview plan -> a batch of
+    // ready questions. This is the only wait; from then on questions are instant.
+    ensureReport()
+      .then(ensurePlan)
+      .then(function () { return fetchBaseBatch(INITIAL_BATCH); })
+      .then(function () { then(); });
   }
 
   document.addEventListener("DOMContentLoaded", function () {

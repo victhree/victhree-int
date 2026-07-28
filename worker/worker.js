@@ -146,9 +146,11 @@ function buildReportPrompt(analyses) {
 /* ================= IV (dynamic interview) ================= */
 async function handleInterview(payload, env, cors) {
   const action = payload && payload.action;
-  if (action === "plan")   return await ivPlan(payload, env, cors);
-  if (action === "next")   return await ivNext(payload, env, cors);
-  if (action === "assess") return await ivAssess(payload, env, cors);
+  if (action === "plan")      return await ivPlan(payload, env, cors);
+  if (action === "questions") return await ivQuestions(payload, env, cors);
+  if (action === "followup")  return await ivFollowup(payload, env, cors);
+  if (action === "next")      return await ivNext(payload, env, cors);
+  if (action === "assess")    return await ivAssess(payload, env, cors);
   return json({ error: "Unknown IV action" }, 400, cors);
 }
 
@@ -235,6 +237,90 @@ async function ivPlan(payload, env, cors) {
     reportText(payload.report)
   ].join("\n");
   const out = await callGemini(env, textContents(prompt), 0.5);
+  if (out.error) return json(out, 502, cors);
+  return json(out.parsed, 200, cors);
+}
+
+// Batch of plan-based questions the officer can ask without waiting on any one
+// answer. These give the interview its "no loading between questions" flow.
+async function ivQuestions(payload, env, cors) {
+  const count = Math.min(20, Math.max(1, payload.count || 10));
+  const plan = payload.plan || {};
+  const planText = [
+    plan.focus_areas && plan.focus_areas.length ? "Focus areas: " + plan.focus_areas.join("; ") : "",
+    plan.piq_hotspots && plan.piq_hotspots.length ? "PIQ hotspots: " + plan.piq_hotspots.join("; ") : "",
+    plan.notes ? "Notes: " + plan.notes : ""
+  ].filter(Boolean).join("\n");
+  const avoid = Array.isArray(payload.avoid) ? payload.avoid.filter(Boolean) : [];
+
+  const prompt = [
+    IV_OFFICER,
+    "",
+    "Prepare a set of " + count + " interview questions to ask this candidate, drawn from the PIQ, the Perception Report and your plan. These are your opening/base questions; you will add follow-ups live as the candidate answers.",
+    "Rules:",
+    "- Each item is exactly ONE question in your own spoken words.",
+    "- No two questions may be duplicates or light rewordings of each other.",
+    "- Do NOT ask anything already listed under 'Already asked' below.",
+    "- Cover a MIX and order them naturally: begin with rapport/personal, then PIQ facts (family, education, hobbies, games, positions of responsibility), then situational/judgement, and one or two current-affairs or opinion questions.",
+    "- Ground them in this candidate's specific PIQ and profile, not generic filler.",
+    "",
+    "Return ONLY valid JSON with this exact shape:",
+    '{ "questions": [ { "question": "the question in the officer\'s words", "targets": ["PIQ:hobbies","OLQ:initiative"] } ] }',
+    "targets is a short list (1-3) using tags like PIQ:<field>, OLQ:<quality>, CONSISTENCY, RAPPORT, CURRENT-AFFAIRS.",
+    "",
+    "=== PIQ ===",
+    piqText(payload.piq),
+    "",
+    "=== Perception Report ===",
+    reportText(payload.report),
+    "",
+    "=== Your interview plan ===",
+    planText || "(no plan provided)",
+    "",
+    "=== Already asked (do NOT repeat these) ===",
+    avoid.length ? avoid.map(function (q, i) { return (i + 1) + ". " + q; }).join("\n") : "(nothing yet)"
+  ].join("\n");
+
+  const out = await callGemini(env, textContents(prompt), 0.8);
+  if (out.error) return json(out, 502, cors);
+  return json(out.parsed, 200, cors);
+}
+
+// Analyse ONE answer and, if it is thin/evasive/inconsistent or opens an
+// interesting thread, return a single follow-up to be asked later.
+async function ivFollowup(payload, env, cors) {
+  const turn = payload.turn || {};
+  const history = Array.isArray(payload.history) ? payload.history : [];
+  const hist = history.map(function (h, i) {
+    return "Q" + (i + 1) + ": " + h.q + "\nA" + (i + 1) + ": " + (h.a && h.a.trim() ? h.a : "[no answer / stayed silent]");
+  }).join("\n\n");
+
+  const prompt = [
+    IV_OFFICER,
+    "",
+    "You have just heard the candidate's answer below. Silently assess it. Decide whether it is worth ONE follow-up question later in the interview.",
+    "Ask a follow-up when the answer was thin, vague, evasive, memorised, or when it is inconsistent with the PIQ, the Perception Report or an earlier answer, or when it opens a genuinely interesting thread worth digging into. If the answer was clear, complete and consistent, do NOT force one.",
+    "The follow-up must be a single question in your own words, must not repeat anything already asked, and should probe the specific thing that stood out.",
+    "",
+    "Return ONLY valid JSON, exactly one of:",
+    '  { "followup": true, "question": "the follow-up question", "targets": ["OLQ:...","CONSISTENCY"] }',
+    '  { "followup": false }',
+    "",
+    "=== PIQ ===",
+    piqText(payload.piq),
+    "",
+    "=== Perception Report ===",
+    reportText(payload.report),
+    "",
+    "=== The answer to assess ===",
+    "Officer asked: " + (turn.q || "(unknown)"),
+    "Candidate answered (" + (turn.seconds != null ? turn.seconds + "s" : "?") + "): " + (turn.a && turn.a.trim() ? turn.a : "[no answer / stayed silent]"),
+    "",
+    "=== Interview so far (do not repeat any of these) ===",
+    hist || "(this is the first answer)"
+  ].join("\n");
+
+  const out = await callGemini(env, textContents(prompt), 0.7);
   if (out.error) return json(out, 502, cors);
   return json(out.parsed, 200, cors);
 }
