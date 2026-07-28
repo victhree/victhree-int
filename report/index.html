@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interview Analysis | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Your consolidated SSB interview assessment: OLQs reflected, consistency against your PIQ and perception report, and a downloadable report." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="assessment"></nav>
+  <div class="wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Interview Analysis</p>
+    <h1>Interview Analysis</h1>
+    <p class="lede">Your consolidated read of the interview: the Officer-Like Qualities you reflected, how consistent your answers were with your PIQ and perception report, and question-by-question guidance.</p>
+
+    <div id="gate" class="gate" style="display:none">
+      <h3>No interview yet</h3>
+      <p>Complete a personal interview first, then come back for your analysis.</p>
+      <a class="btn primary" href="../interview/index.html">Go to the interview →</a>
+    </div>
+
+    <div id="controls" style="display:none">
+      <div class="t-toolbar">
+        <button id="generate" class="btn primary">Generate Interview Analysis</button>
+        <button id="regenerate" class="btn ghost" style="display:none">Regenerate</button>
+        <button id="download" class="btn primary ai-dl" style="display:none">↓ Download PDF</button>
+      </div>
+    </div>
+
+    <p id="status" class="ai-status" style="font-family:var(--sans)"></p>
+    <div id="assess-body" class="ai-box" style="display:none;border-left-color:var(--navy)"></div>
+
+    <div id="next-nav" class="page-foot-nav" style="display:none">
+      <a href="../interview/index.html">← Interview</a>
+      <a href="../index.html">Dashboard →</a>
+    </div>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/vendor/jspdf.umd.min.js"></script>
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  if (!Store.activeProfile()) { window.location.href = "../index.html"; return; }
+  var AI = (window.VICTHREE_CONFIG && window.VICTHREE_CONFIG.aiEndpoint) || "";
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+
+  function history() { return (Store.getInterview() || { history: [] }).history; }
+
+  function renderAssessment(A) {
+    var box = $("assess-body"); box.innerHTML = ""; box.style.display = "block";
+    if (A.summary) { var c = el("div", "ai-card snapshot"); c.appendChild(el("h4", null, "Officer's assessment")); c.appendChild(el("p", null, A.summary)); box.appendChild(c); }
+    if (A.olqs_reflected && A.olqs_reflected.length) { var c2 = el("div", "ai-card reflected"); c2.appendChild(el("h4", null, "Officer-Like Qualities reflected")); var u = el("ul"); A.olqs_reflected.forEach(function (s) { u.appendChild(el("li", null, s)); }); c2.appendChild(u); box.appendChild(c2); }
+    if (A.olqs_to_work_on && A.olqs_to_work_on.length) { var c3 = el("div", "ai-card work"); c3.appendChild(el("h4", null, "OLQs to work on")); var u2 = el("ul"); A.olqs_to_work_on.forEach(function (s) { u2.appendChild(el("li", null, s)); }); c3.appendChild(u2); box.appendChild(c3); }
+    if (A.consistency && A.consistency.length) { var c4 = el("div", "ai-card consistency-card"); c4.appendChild(el("h4", null, "Consistency vs PIQ & perception report")); var u3 = el("ul"); A.consistency.forEach(function (s) { u3.appendChild(el("li", null, s)); }); c4.appendChild(u3); box.appendChild(c4); }
+    if (A.items && A.items.length) {
+      var head = el("h3", null, "Question by question"); head.style.marginTop = "18px"; box.appendChild(head);
+      var H = history();
+      A.items.forEach(function (it) {
+        var d = el("div", "ai-item");
+        d.appendChild(el("div", "qn", "#" + (it.n || "") + "  " + (it.prompt || "")));
+        var ans = (H[(it.n || 0) - 1] || {}).a;
+        var yr = el("p", "ai-your"); yr.appendChild(el("strong", null, "Your answer: ")); yr.appendChild(document.createTextNode(ans && ans.trim() ? ans : "(stayed silent)")); d.appendChild(yr);
+        if (it.comment) d.appendChild(el("p", null, it.comment));
+        if (it.suggestion) { var s = el("p"); s.appendChild(el("strong", null, "A stronger answer: ")); s.appendChild(el("span", "sugg", it.suggestion)); d.appendChild(s); }
+        box.appendChild(d);
+      });
+    }
+    $("download").style.display = "inline-block";
+    $("regenerate").style.display = "inline-block";
+    $("generate").style.display = "none";
+    $("next-nav").style.display = "flex";
+  }
+
+  function generate() {
+    if (!AI) { $("status").textContent = "The analysis service is not configured. Add your Worker URL in assets/config.js."; return; }
+    var H = history();
+    if (!H.length) return;
+    $("status").innerHTML = '<span class="spinner"></span>The board is preparing your Interview Analysis…';
+    $("generate").disabled = true; $("regenerate").disabled = true;
+    fetch(AI, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "IV", action: "assess", piq: Store.getPiq(), report: Store.getReport(), history: H }) })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (data) {
+        if (data && data.error) throw new Error(data.error);
+        $("status").textContent = "";
+        Store.setAssessment(data);
+        renderAssessment(data);
+        $("generate").disabled = false; $("regenerate").disabled = false;
+        window.V3Journey.renderTracker();
+      })
+      .catch(function () {
+        $("status").textContent = "The analysis could not be generated right now. Please check your connection and try again.";
+        $("generate").disabled = false; $("regenerate").disabled = false;
+      });
+  }
+
+  /* ---------- PDF ---------- */
+  function downloadReport() {
+    var img = document.querySelector(".brand-img");
+    if (img && img.src) {
+      fetch(img.src).then(function (r) { return r.blob(); }).then(function (b) {
+        var fr = new FileReader();
+        fr.onload = function () { buildPdf(fr.result, img.naturalWidth || 0, img.naturalHeight || 0); };
+        fr.onerror = function () { buildPdf(null, 0, 0); };
+        fr.readAsDataURL(b);
+      }).catch(function () { buildPdf(null, 0, 0); });
+    } else { buildPdf(null, 0, 0); }
+  }
+  function buildPdf(banner, bw, bh) {
+    var JS = window.jspdf && window.jspdf.jsPDF;
+    if (!JS) { alert("The PDF tool didn't finish loading. Please reload and try again."); return; }
+    var A = Store.getAssessment(); if (!A) return;
+    var H = history();
+    var when = new Date().toLocaleString();
+    var who = Store.activeProfile();
+
+    var doc = new JS({ unit: "pt", format: "a4" });
+    var PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight();
+    var M = 42, x = M, y = M, cw = PW - 2 * M;
+    var navy = [15, 35, 64], ink = [28, 35, 49], soft = [74, 82, 101], green = [63, 107, 58], gold2 = [138, 109, 30];
+
+    function br(h) { if (y + h > PH - M) { doc.addPage(); y = M; } }
+    function text(str, o) {
+      o = o || {};
+      var size = o.size || 11, lh = o.lh || Math.round(size * 1.4), col = o.color || ink, font = o.font || "times", style = o.style || "normal";
+      var maxw = (o.maxw != null ? o.maxw : cw), xx = (o.x != null ? o.x : x);
+      doc.setFont(font, style); doc.setFontSize(size); doc.setTextColor(col[0], col[1], col[2]);
+      var arr = doc.splitTextToSize(String(str), maxw);
+      for (var i = 0; i < arr.length; i++) { br(lh); doc.text(arr[i], xx, y + size * 0.9); y += lh; }
+      if (o.gap) y += o.gap;
+    }
+    function card(bg, headCol, title, bodyStr, bullets) {
+      var pad = 13, iw = cw - 2 * pad, lhT = 14, lhB = 15.4;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10.5);
+      var tl = doc.splitTextToSize(title, iw);
+      doc.setFont("times", "normal"); doc.setFontSize(11);
+      var bl = bodyStr ? doc.splitTextToSize(bodyStr, iw) : [];
+      var bu = []; if (bullets) { bullets.forEach(function (s) { bu = bu.concat(doc.splitTextToSize("•  " + s, iw)); }); }
+      var h = pad + tl.length * lhT + 5 + (bl.length + bu.length) * lhB + pad;
+      if (y + h > PH - M) { doc.addPage(); y = M; }
+      doc.setFillColor(bg[0], bg[1], bg[2]); doc.roundedRect(x, y, cw, h, 7, 7, "F");
+      var cy = y + pad;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(headCol[0], headCol[1], headCol[2]);
+      tl.forEach(function (t) { doc.text(t, x + pad, cy + 9); cy += lhT; });
+      cy += 5;
+      doc.setFont("times", "normal"); doc.setFontSize(11); doc.setTextColor(ink[0], ink[1], ink[2]);
+      bl.forEach(function (t) { doc.text(t, x + pad, cy + 9); cy += lhB; });
+      bu.forEach(function (t) { doc.text(t, x + pad, cy + 9); cy += lhB; });
+      y += h + 13;
+    }
+
+    if (banner && bw > 0 && bh > 0) {
+      var bpad = 14, iw = cw - 2 * bpad, ih = iw * (bh / bw), rectH = ih + 2 * bpad;
+      br(rectH + 8);
+      doc.setFillColor(navy[0], navy[1], navy[2]); doc.roundedRect(x, y, cw, rectH, 8, 8, "F");
+      try { doc.addImage(banner, "PNG", x + bpad, y + bpad, iw, ih); } catch (e) {}
+      y += rectH + 16;
+    }
+    text("Interview Analysis", { font: "times", style: "bold", size: 22, color: navy, lh: 26 });
+    text("Candidate: " + who + "   ·   " + when, { font: "helvetica", style: "normal", size: 9.5, color: soft, lh: 14, gap: 4 });
+    text("Personal interview · " + H.length + " questions answered.", { font: "times", style: "normal", size: 11.5, color: ink, gap: 10 });
+
+    if (A.summary) card([238, 242, 248], navy, "Officer's assessment", A.summary, null);
+    if (A.olqs_reflected && A.olqs_reflected.length) card([238, 244, 236], green, "Officer-Like Qualities reflected", null, A.olqs_reflected);
+    if (A.olqs_to_work_on && A.olqs_to_work_on.length) card([248, 242, 226], gold2, "OLQs to work on", null, A.olqs_to_work_on);
+    if (A.consistency && A.consistency.length) card([248, 242, 226], gold2, "Consistency vs PIQ & perception report", null, A.consistency);
+
+    y += 4;
+    text("Question by question", { font: "times", style: "bold", size: 15, color: navy, lh: 20, gap: 2 });
+    (A.items || []).forEach(function (it, i) {
+      var ans = (H[(it.n || 0) - 1] || {}).a;
+      br(30);
+      y += 5; doc.setDrawColor(228, 225, 214); doc.setLineWidth(0.6); doc.line(x, y, x + cw, y); y += 9;
+      text("#" + (it.n || (i + 1)) + "   " + (it.prompt || ""), { font: "helvetica", style: "bold", size: 10.5, color: navy, lh: 14 });
+      text("Your answer: " + (ans && ans.trim() ? ans : "(stayed silent)"), { font: "times", style: "normal", size: 11, color: soft });
+      if (it.comment) text(it.comment, { font: "times", style: "normal", size: 11, color: ink });
+      if (it.suggestion) text("A stronger answer: " + it.suggestion, { font: "times", style: "italic", size: 11, color: green });
+      y += 3;
+    });
+
+    y += 8; br(30);
+    text("There are no official correct answers in the SSB interview. This report is guidance to help you prepare, not a verdict.", { font: "helvetica", style: "normal", size: 9, color: soft, lh: 13 });
+
+    doc.save("VicThree-SSB-Interview-Analysis.pdf");
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    if (!history().length) { $("gate").style.display = "block"; return; }
+    $("controls").style.display = "block";
+    var existing = Store.getAssessment();
+    if (existing) { renderAssessment(existing); }
+    $("generate").addEventListener("click", generate);
+    $("regenerate").addEventListener("click", generate);
+    $("download").addEventListener("click", downloadReport);
+  });
+})();
+</script>
+</body>
+</html>

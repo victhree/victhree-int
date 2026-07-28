@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PIQ Form | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Fill your Personal Information Questionnaire (PIQ): the factual basis the interviewing officer questions you on." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="piq"></nav>
+  <div class="wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › PIQ Form</p>
+    <h1>Personal Information Questionnaire</h1>
+    <p class="lede">This is the factual sheet the board reads before your interview. Fill it as you would on the real PIQ. The interviewing officer questions you directly on what you write here, so keep it truthful. Fields you leave blank are simply not asked about.</p>
+
+    <form id="piq-form" class="piq-form" autocomplete="off">
+
+      <section class="piq-sec">
+        <h2>Personal</h2>
+        <div class="piq-grid">
+          <div class="piq-field"><label for="f-name">Full name</label><input id="f-name" /></div>
+          <div class="piq-field"><label for="f-dob">Date of birth</label><input id="f-dob" type="date" /></div>
+          <div class="piq-field"><label for="f-age">Age</label><input id="f-age" type="number" min="0" /></div>
+          <div class="piq-field"><label for="f-motherTongue">Mother tongue</label><input id="f-motherTongue" /></div>
+          <div class="piq-field"><label for="f-height">Height (cm)</label><input id="f-height" /></div>
+          <div class="piq-field"><label for="f-weight">Weight (kg)</label><input id="f-weight" /></div>
+          <div class="piq-field"><label for="f-backgroundType">Background</label>
+            <select id="f-backgroundType"><option value="">–</option><option value="rural">Rural</option><option value="urban">Urban</option><option value="semi-urban">Semi-urban</option></select></div>
+          <div class="piq-field"><label for="f-district">Home district</label><input id="f-district" /></div>
+          <div class="piq-field"><label for="f-state">Home state</label><input id="f-state" /></div>
+          <div class="piq-field wide"><label for="f-presentAddress">Present address</label><textarea id="f-presentAddress" rows="2"></textarea></div>
+          <div class="piq-field wide"><label for="f-permanentAddress">Permanent address</label><textarea id="f-permanentAddress" rows="2"></textarea></div>
+        </div>
+      </section>
+
+      <section class="piq-sec">
+        <h2>Family</h2>
+        <div class="piq-grid">
+          <div class="piq-field"><label for="f-fatherName">Father's name</label><input id="f-fatherName" /></div>
+          <div class="piq-field"><label for="f-fatherOccupation">Father's occupation</label><input id="f-fatherOccupation" /></div>
+          <div class="piq-field"><label for="f-motherOccupation">Mother's occupation</label><input id="f-motherOccupation" /></div>
+          <div class="piq-field"><label for="f-familyIncome">Family monthly income</label><input id="f-familyIncome" /></div>
+          <div class="piq-field"><label for="f-siblings">Brothers / sisters</label><input id="f-siblings" placeholder="e.g. 1 elder brother, 1 younger sister" /></div>
+        </div>
+      </section>
+
+      <section class="piq-sec">
+        <h2>Education</h2>
+        <p class="sec-hint">Add each qualification from matriculation upward. Boarder or day scholar helps the officer picture your upbringing.</p>
+        <div id="edu-rows"></div>
+        <button type="button" id="edu-add" class="btn ghost">+ Add qualification</button>
+      </section>
+
+      <section class="piq-sec">
+        <h2>Occupation</h2>
+        <div class="piq-grid">
+          <div class="piq-field"><label for="f-currentOccupation">Current occupation</label><input id="f-currentOccupation" placeholder="Student / job / preparing" /></div>
+          <div class="piq-field"><label for="f-currentIncome">Current personal income</label><input id="f-currentIncome" /></div>
+        </div>
+      </section>
+
+      <section class="piq-sec">
+        <h2>Activities &amp; responsibilities</h2>
+        <p class="sec-hint">Separate multiple entries with commas. Be honest, the officer will dig into anything you list.</p>
+        <div class="piq-grid">
+          <div class="piq-field wide"><label for="f-games">Games / sports</label><input id="f-games" placeholder="e.g. Football, Cricket" /><span class="fhint">Comma-separated</span></div>
+          <div class="piq-field wide"><label for="f-hobbies">Hobbies</label><input id="f-hobbies" placeholder="e.g. Sketching, Trekking, Reading" /><span class="fhint">Comma-separated</span></div>
+          <div class="piq-field wide"><label for="f-extracurricular">Extracurricular activities</label><input id="f-extracurricular" placeholder="e.g. Debating, NSS, College fest organiser" /><span class="fhint">Comma-separated</span></div>
+          <div class="piq-field wide"><label for="f-positionsOfResponsibility">Positions of responsibility</label><input id="f-positionsOfResponsibility" placeholder="e.g. Class monitor, Team captain, House prefect" /><span class="fhint">Comma-separated</span></div>
+        </div>
+      </section>
+
+      <section class="piq-sec">
+        <h2>NCC &amp; Service</h2>
+        <div class="piq-grid">
+          <div class="piq-field"><label for="f-ncc-have">NCC</label>
+            <select id="f-ncc-have"><option value="">No</option><option value="yes">Yes</option></select></div>
+          <div class="piq-field"><label for="f-ncc-wing">NCC wing</label>
+            <select id="f-ncc-wing"><option value="">–</option><option>Army</option><option>Navy</option><option>Air</option></select></div>
+          <div class="piq-field"><label for="f-ncc-certificate">NCC certificate</label>
+            <select id="f-ncc-certificate"><option value="">–</option><option>A</option><option>B</option><option>C</option></select></div>
+          <div class="piq-field wide"><label for="f-commissionsAppliedFor">Commissions / entries applied for</label><input id="f-commissionsAppliedFor" placeholder="e.g. NDA, CDS (IMA), AFCAT" /><span class="fhint">Comma-separated</span></div>
+          <div class="piq-field"><label for="f-attemptsSoFar">Attempts so far</label><input id="f-attemptsSoFar" type="number" min="0" /></div>
+          <div class="piq-field wide"><label for="f-servicesChosenPreference">Service preference (in order)</label><input id="f-servicesChosenPreference" placeholder="e.g. Army, Air Force, Navy" /></div>
+        </div>
+      </section>
+
+      <div class="piq-actions">
+        <button type="submit" id="piq-save" class="btn primary">Save PIQ</button>
+        <a class="btn ghost" href="../interview/index.html" id="piq-tointerview" style="display:none">Continue to interview →</a>
+        <span id="piq-note" class="piq-save-note" style="display:none">Saved. Your PIQ is stored on this device.</span>
+      </div>
+    </form>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  if (!Store.activeProfile()) { window.location.href = "../index.html"; return; }
+  var $ = function (id) { return document.getElementById(id); };
+  var val = function (id) { var e = $(id); return e ? e.value.trim() : ""; };
+  var setVal = function (id, v) { var e = $(id); if (e && v != null) e.value = v; };
+  var toArr = function (id) { return val(id).split(",").map(function (s) { return s.trim(); }).filter(Boolean); };
+  var fromArr = function (a) { return Array.isArray(a) ? a.join(", ") : (a || ""); };
+
+  var EDU_FIELDS = [
+    { k: "level", label: "Level", ph: "e.g. Class 10, Class 12, B.Tech" },
+    { k: "institution", label: "School / College", ph: "" },
+    { k: "board", label: "Board / University", ph: "" },
+    { k: "year", label: "Year", ph: "" },
+    { k: "percentage", label: "% / CGPA", ph: "" },
+    { k: "medium", label: "Medium", ph: "English / Hindi" },
+    { k: "boarderOrDayScholar", label: "Boarder / Day", ph: "Boarder / Day scholar" }
+  ];
+
+  function addEduRow(data) {
+    data = data || {};
+    var row = document.createElement("div");
+    row.className = "edu-row";
+    EDU_FIELDS.forEach(function (f) {
+      var wrap = document.createElement("div"); wrap.className = "piq-field";
+      var lab = document.createElement("label"); lab.textContent = f.label;
+      var inp = document.createElement("input"); inp.setAttribute("data-k", f.k); if (f.ph) inp.placeholder = f.ph;
+      if (data[f.k] != null) inp.value = data[f.k];
+      wrap.appendChild(lab); wrap.appendChild(inp); row.appendChild(wrap);
+    });
+    var del = document.createElement("button");
+    del.type = "button"; del.className = "edu-del"; del.textContent = "remove";
+    del.onclick = function () { row.parentNode.removeChild(row); };
+    row.appendChild(del);
+    $("edu-rows").appendChild(row);
+  }
+
+  function readEducation() {
+    var rows = $("edu-rows").querySelectorAll(".edu-row");
+    var out = [];
+    rows.forEach(function (row) {
+      var obj = {}, any = false;
+      row.querySelectorAll("input[data-k]").forEach(function (inp) {
+        var v = inp.value.trim(); obj[inp.getAttribute("data-k")] = v; if (v) any = true;
+      });
+      if (any) out.push(obj);
+    });
+    return out;
+  }
+
+  function collect() {
+    return {
+      name: val("f-name"),
+      fatherName: val("f-fatherName"),
+      fatherOccupation: val("f-fatherOccupation"),
+      motherOccupation: val("f-motherOccupation"),
+      familyIncome: val("f-familyIncome"),
+      siblings: val("f-siblings"),
+      presentAddress: val("f-presentAddress"),
+      permanentAddress: val("f-permanentAddress"),
+      district: val("f-district"),
+      state: val("f-state"),
+      backgroundType: val("f-backgroundType"),
+      dob: val("f-dob"),
+      age: val("f-age"),
+      height: val("f-height"),
+      weight: val("f-weight"),
+      motherTongue: val("f-motherTongue"),
+      education: readEducation(),
+      currentOccupation: val("f-currentOccupation"),
+      currentIncome: val("f-currentIncome"),
+      games: toArr("f-games"),
+      hobbies: toArr("f-hobbies"),
+      extracurricular: toArr("f-extracurricular"),
+      positionsOfResponsibility: toArr("f-positionsOfResponsibility"),
+      ncc: { have: val("f-ncc-have") === "yes", wing: val("f-ncc-wing"), certificate: val("f-ncc-certificate") },
+      commissionsAppliedFor: toArr("f-commissionsAppliedFor"),
+      attemptsSoFar: val("f-attemptsSoFar"),
+      servicesChosenPreference: val("f-servicesChosenPreference")
+    };
+  }
+
+  function prefill(p) {
+    if (!p) return;
+    ["name","fatherName","fatherOccupation","motherOccupation","familyIncome","siblings","presentAddress","permanentAddress","district","state","backgroundType","dob","age","height","weight","motherTongue","currentOccupation","currentIncome","servicesChosenPreference","attemptsSoFar"]
+      .forEach(function (k) { setVal("f-" + k, p[k]); });
+    setVal("f-games", fromArr(p.games));
+    setVal("f-hobbies", fromArr(p.hobbies));
+    setVal("f-extracurricular", fromArr(p.extracurricular));
+    setVal("f-positionsOfResponsibility", fromArr(p.positionsOfResponsibility));
+    setVal("f-commissionsAppliedFor", fromArr(p.commissionsAppliedFor));
+    if (p.ncc) { setVal("f-ncc-have", p.ncc.have ? "yes" : ""); setVal("f-ncc-wing", p.ncc.wing); setVal("f-ncc-certificate", p.ncc.certificate); }
+    if (Array.isArray(p.education) && p.education.length) p.education.forEach(addEduRow);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var existing = Store.getPiq();
+    if (existing) { prefill(existing); }
+    else { setVal("f-name", Store.activeProfile()); addEduRow({ level: "Class 10" }); addEduRow({ level: "Class 12" }); }
+    if (Store.getPiq()) $("piq-tointerview").style.display = "inline-block";
+
+    $("edu-add").addEventListener("click", function () { addEduRow(); });
+    $("piq-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      Store.setPiq(collect());
+      var note = $("piq-note"); note.style.display = "inline-block";
+      $("piq-tointerview").style.display = "inline-block";
+      window.V3Journey.renderTracker();
+      setTimeout(function () { note.style.display = "none"; }, 3500);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    });
+  });
+})();
+</script>
+</body>
+</html>

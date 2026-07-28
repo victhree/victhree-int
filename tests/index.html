@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Psychology Tests | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Run the SSB psychology battery: PPDT, TAT, WAT, SRT and SDT. Each test's analysis is saved to build your consolidated perception report." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a>
+  </div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="tests"></nav>
+  <div class="wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Psychology Tests</p>
+    <h1>Psychology Tests</h1>
+    <p class="lede">Take each test the way you would on the board. When the analysis returns, it is saved to your profile and feeds your consolidated Perception Report. You can retake any test; the latest analysis is kept.</p>
+
+    <div class="battery" id="battery"></div>
+
+    <p class="muted small" id="hint"></p>
+    <div class="page-foot-nav">
+      <a href="../index.html">← Dashboard</a>
+      <a href="../perception/index.html">Perception Report →</a>
+    </div>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p>
+</footer>
+
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  if (!Store.activeProfile()) { window.location.href = "../index.html"; return; }
+
+  var TESTS = [
+    { key: "PPDT", name: "Picture Perception", href: "ppdt.html" },
+    { key: "TAT",  name: "Thematic Apperception", href: "tat.html" },
+    { key: "WAT",  name: "Word Association", href: "wat.html" },
+    { key: "SRT",  name: "Situation Reaction", href: "srt.html" },
+    { key: "SDT",  name: "Self-Description", href: "sdt.html" }
+  ];
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var a = Store.getAnalyses();
+    var host = document.getElementById("battery");
+    var done = 0;
+    TESTS.forEach(function (t) {
+      var isDone = !!a[t.key];
+      if (isDone) done++;
+      var card = document.createElement("a");
+      card.className = "batt-card" + (isDone ? " done" : "");
+      card.href = t.href;
+      card.innerHTML = '<span class="batt-tick">✓ done</span><h3>' + t.name + '</h3><span class="card-abbr">' + t.key + '</span>';
+      host.appendChild(card);
+    });
+    document.getElementById("hint").textContent = done + " of " + TESTS.length + " tests analysed. You can build the Perception Report once at least one test is done, but all five give the fullest read.";
+  });
+})();
+</script>
+</body>
+</html>

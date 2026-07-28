@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>Personal Interview | VicThree SSB Interview Trainer</title>
+<meta name="description" content="A dynamic, time-bound SSB personal interview: one question at a time, adapting to your answers, PIQ and perception report." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="interview"></nav>
+  <div class="wrap trainer-wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Personal Interview</p>
+
+    <!-- GATE: needs PIQ -->
+    <div id="gate" class="gate" style="display:none">
+      <h3>Fill your PIQ first</h3>
+      <p>The interviewing officer questions you on your PIQ, so it must be completed before the interview can begin.</p>
+      <a class="btn primary" href="../piq/index.html">Go to the PIQ form →</a>
+    </div>
+
+    <!-- INTRO -->
+    <section id="intro" style="display:none">
+      <h1>Your Personal Interview</h1>
+      <div class="iv-intro-card">
+        <p>You will now sit across from an interviewing officer. Questions come one at a time and adapt to what you say, to your PIQ and to your perception report. Answer honestly and in your own words. There are no trick answers, the officer is reading the real you.</p>
+        <div class="iv-facts">
+          <div class="iv-fact"><b id="fact-q">25</b>questions (about)</div>
+          <div class="iv-fact"><b id="fact-t">75s</b>per question</div>
+          <div class="iv-fact"><b id="fact-total">~30m</b>total</div>
+        </div>
+        <p id="report-note" class="muted small"></p>
+        <div class="t-toolbar">
+          <button id="begin" class="btn primary">Begin interview</button>
+          <button id="resume" class="btn primary" style="display:none">Resume interview</button>
+          <button id="startover" class="btn ghost" style="display:none">Start over</button>
+        </div>
+        <p id="prep-status" class="iv-thinking" style="display:none"></p>
+      </div>
+    </section>
+
+    <!-- STAGE -->
+    <section id="stage" style="display:none">
+      <div class="t-head">
+        <span id="iv-counter" class="t-count">Question 1</span>
+        <div id="iv-progress" class="t-bar"><div></div></div>
+        <span id="iv-timer" class="t-timer">75</span>
+      </div>
+
+      <div id="transcript" class="iv-transcript"></div>
+
+      <div id="live" class="iv-live" style="display:none">
+        <p id="live-q" class="iv-live-q">…</p>
+        <textarea id="live-a" placeholder="Answer in your own words…" autocomplete="off"></textarea>
+        <div class="iv-live-actions">
+          <button id="submit" class="btn primary">Submit answer →</button>
+          <button id="endnow" class="btn ghost">End interview</button>
+        </div>
+        <p id="live-targets" class="iv-targets"></p>
+      </div>
+
+      <div id="thinking" class="iv-thinking" style="display:none"><span class="spinner"></span>The officer is considering your answer…</div>
+
+      <div id="done-card" class="iv-intro-card" style="display:none">
+        <h2>Interview complete</h2>
+        <p>You answered <b id="done-count">0</b> questions. Your responses are saved. The board will now prepare your Interview Analysis.</p>
+        <a class="btn primary" href="../report/index.html">See your Interview Analysis →</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  if (!Store.activeProfile()) { window.location.href = "../index.html"; return; }
+  var CFG = (window.VICTHREE_CONFIG || {});
+  var AI = CFG.aiEndpoint || "";
+  var IVCFG = CFG.interview || {};
+  var MAXQ = IVCFG.maxQuestions || 25;
+  var SPQ = IVCFG.secondsPerQuestion || 75;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+
+  var T = { remaining: 0, tick: null, startTs: 0, current: null, busy: false };
+
+  /* ---------- worker calls ---------- */
+  function post(payload) {
+    return fetch(AI, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) { if (d && d.error) throw new Error(d.error); return d; });
+  }
+  function ivBase() { return { piq: Store.getPiq(), report: Store.getReport() }; }
+
+  function ensurePlan() {
+    var plan = Store.getPlan();
+    if (plan) return Promise.resolve(plan);
+    var b = ivBase();
+    return post({ mode: "IV", action: "plan", piq: b.piq, report: b.report })
+      .then(function (p) { Store.setPlan(p); return p; })
+      .catch(function () { var p = {}; Store.setPlan(p); return p; }); // proceed even if planning fails
+  }
+
+  /* ---------- transcript ---------- */
+  function renderTranscript() {
+    var host = $("transcript"); host.innerHTML = "";
+    var iv = Store.getInterview() || { history: [] };
+    iv.history.forEach(function (h, i) {
+      var turn = el("div", "iv-turn");
+      var q = el("div", "iv-q");
+      q.appendChild(el("span", "iv-who", "Interviewing Officer"));
+      q.appendChild(document.createTextNode(h.q));
+      var a = el("div", "iv-a" + (h.a && h.a.trim() ? "" : " blank"), h.a && h.a.trim() ? h.a : "(stayed silent)");
+      var secs = el("span", "iv-secs", "answered in " + (h.seconds != null ? h.seconds : "?") + "s");
+      a.appendChild(secs);
+      turn.appendChild(q); turn.appendChild(a);
+      host.appendChild(turn);
+    });
+    updateHeadCounter();
+  }
+  function updateHeadCounter() {
+    var n = (Store.getInterview() || { history: [] }).history.length;
+    $("iv-counter").textContent = "Question " + Math.min(n + 1, MAXQ) + " / " + MAXQ;
+    $("iv-progress").firstElementChild.style.width = Math.min(100, n / MAXQ * 100) + "%";
+  }
+
+  /* ---------- timer ---------- */
+  function startTimer() {
+    T.remaining = SPQ; T.startTs = performance.now();
+    drawTimer();
+    clearInterval(T.tick);
+    T.tick = setInterval(function () {
+      T.remaining--; drawTimer();
+      if (T.remaining <= 0) { clearInterval(T.tick); submitAnswer(true); }
+    }, 1000);
+  }
+  function drawTimer() {
+    var t = $("iv-timer");
+    var big = SPQ >= 60, s = Math.max(0, T.remaining);
+    t.textContent = big ? (Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60)) : s;
+    t.classList.toggle("low", T.remaining <= (big ? 20 : 5));
+  }
+
+  /* ---------- loop ---------- */
+  function nextQuestion() {
+    var iv = Store.getInterview() || { history: [] };
+    if (iv.history.length >= MAXQ) { finishInterview(); return; }
+    $("live").style.display = "none";
+    $("thinking").style.display = "block";
+    T.busy = true;
+    var b = ivBase();
+    post({ mode: "IV", action: "next", piq: b.piq, report: b.report, plan: Store.getPlan(),
+           history: iv.history, askedCount: iv.history.length, maxQuestions: MAXQ })
+      .then(function (d) {
+        $("thinking").style.display = "none"; T.busy = false;
+        if (!d || d.done) { finishInterview(); return; }
+        renderLive(d.question, d.targets);
+      })
+      .catch(function () {
+        $("thinking").style.display = "none"; T.busy = false;
+        $("thinking").innerHTML = "";
+        var retry = el("div", "iv-thinking");
+        retry.appendChild(document.createTextNode("The connection dropped. "));
+        var b2 = el("button", "link-btn", "Try the next question again");
+        b2.onclick = function () { retry.parentNode.removeChild(retry); nextQuestion(); };
+        retry.appendChild(b2);
+        $("stage").insertBefore(retry, $("done-card"));
+      });
+  }
+
+  function renderLive(question, targets) {
+    T.current = question;
+    $("live-q").textContent = question;
+    $("live-a").value = "";
+    $("live-targets").textContent = (targets && targets.length) ? ("Focus: " + targets.join(" · ")) : "";
+    $("live").style.display = "block";
+    updateHeadCounter();
+    $("live-a").focus();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    startTimer();
+  }
+
+  function submitAnswer(timedOut) {
+    if (T.busy || !T.current) return;
+    clearInterval(T.tick);
+    var used = Math.min(SPQ, Math.round((performance.now() - T.startTs) / 1000));
+    var ans = $("live-a").value.trim();
+    Store.pushTurn({ q: T.current, a: ans, seconds: used, targets: null });
+    T.current = null;
+    renderTranscript();
+    nextQuestion();
+  }
+
+  function finishInterview() {
+    clearInterval(T.tick);
+    var iv = Store.getInterview(); iv.done = true; Store.setInterview(iv);
+    $("live").style.display = "none";
+    $("thinking").style.display = "none";
+    $("iv-timer").textContent = "done";
+    $("iv-progress").firstElementChild.style.width = "100%";
+    $("done-count").textContent = iv.history.length;
+    $("done-card").style.display = "block";
+    window.V3Journey.renderTracker();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
+
+  /* ---------- start ---------- */
+  function beginInterview() {
+    $("intro").style.display = "none";
+    $("stage").style.display = "block";
+    renderTranscript();
+    $("prep-status").style.display = "none";
+    nextQuestion();
+  }
+  function prep(then) {
+    if (!AI) { $("prep-status").style.display = "block"; $("prep-status").textContent = "The interview service is not configured. Add your Worker URL in assets/config.js."; return; }
+    $("begin").disabled = true; $("resume").disabled = true;
+    $("prep-status").style.display = "block";
+    $("prep-status").innerHTML = '<span class="spinner"></span>The officer is reviewing your file…';
+    ensurePlan().then(function () { then(); });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    if (!Store.getPiq()) { $("gate").style.display = "block"; return; }
+
+    $("fact-q").textContent = MAXQ;
+    $("fact-t").textContent = SPQ + "s";
+    $("fact-total").textContent = "~" + Math.round(MAXQ * SPQ / 60) + "m";
+    $("report-note").textContent = Store.getReport()
+      ? "Your perception report is loaded, the officer will cross-check your answers against it."
+      : "Tip: build your Perception Report first so the officer can cross-check your answers against your psychology profile.";
+
+    $("intro").style.display = "block";
+
+    var iv = Store.getInterview() || { history: [], done: false };
+    var inProgress = iv.history.length > 0 && !iv.done;
+    if (iv.done && iv.history.length > 0) {
+      // already finished — offer to review or restart
+      $("begin").style.display = "none";
+      $("resume").style.display = "none";
+      $("startover").style.display = "inline-block";
+      $("report-note").innerHTML = 'You have completed this interview. <a href="../report/index.html">See your Interview Analysis →</a>';
+    } else if (inProgress) {
+      $("begin").style.display = "none";
+      $("resume").style.display = "inline-block";
+      $("startover").style.display = "inline-block";
+    }
+
+    $("begin").addEventListener("click", function () { prep(beginInterview); });
+    $("resume").addEventListener("click", function () { prep(beginInterview); });
+    $("startover").addEventListener("click", function () {
+      if (confirm("Start a new interview? Your current transcript and analysis will be cleared.")) {
+        Store.resetInterview();
+        window.V3Journey.renderTracker();
+        window.location.reload();
+      }
+    });
+
+    $("submit").addEventListener("click", function () { submitAnswer(false); });
+    $("endnow").addEventListener("click", function () {
+      if (confirm("End the interview now and go to your analysis?")) { submitPendingThenFinish(); }
+    });
+  });
+
+  // If the officer has a question on screen when the user ends early, save the
+  // pending answer (if any) before finishing.
+  function submitPendingThenFinish() {
+    clearInterval(T.tick);
+    if (T.current) {
+      var used = Math.min(SPQ, Math.round((performance.now() - T.startTs) / 1000));
+      var ans = $("live-a").value.trim();
+      Store.pushTurn({ q: T.current, a: ans, seconds: used, targets: null });
+      T.current = null;
+      renderTranscript();
+    }
+    finishInterview();
+  }
+})();
+</script>
+</body>
+</html>

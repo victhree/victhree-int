@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>Self-Description Test | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Timed SDT: write honest paragraphs on the five standard prompts, then an instant analysis saved to your profile." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="tests"></nav>
+  <div class="wrap trainer-wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › <a href="index.html">Tests</a> › SDT</p>
+    <div class="trainer-head">
+      <div class="th-titles">
+        <p class="eyebrow">Psychology test</p>
+        <h1>Self-Description Test</h1>
+      </div>
+      <p class="t-sub">Write a short, honest paragraph for each of the five prompts, about four to five lines each. Take the full fifteen minutes, or go untimed while you build the habit.</p>
+    </div>
+
+    <section id="t-intro" class="t-panel active">
+      <div class="t-controls">
+        <label class="t-count-label" for="t-count">Choose your time limit</label>
+        <div class="t-count-row">
+          <select id="t-count">
+            <option value="15" selected>15 minutes</option>
+            <option value="0">Untimed</option>
+          </select>
+          <button id="t-start" class="btn primary">Start</button>
+        </div>
+        <a href="#" id="t-resume" class="link-btn" style="display:none">View your last session's review →</a>
+      </div>
+    </section>
+
+    <section id="t-run" class="t-panel">
+      <div class="t-head">
+        <span id="t-counter" class="t-count">Self-Description</span>
+        <div id="t-progress" class="t-bar"><div></div></div>
+        <span id="t-timer" class="t-timer">15:00</span>
+      </div>
+      <div id="t-form" class="sdt-form"></div>
+      <div class="t-actions">
+        <button id="t-finish" class="btn primary">Finish &amp; see analysis</button>
+      </div>
+      <p class="t-hint">Answer all five honestly and keep them consistent with each other. A real, balanced self beats a perfect one.</p>
+      <p style="margin-top:10px"><button id="t-quit" class="link-btn">Quit</button></p>
+    </section>
+
+    <section id="t-results" class="t-panel">
+      <h2>Your session review</h2>
+      <div id="t-stats" class="t-stats"></div>
+      <div id="t-ai" class="ai-box" style="display:none">
+        <div class="ai-head">
+          <h3>Your Performance Analysis</h3>
+          <button id="t-download" class="btn primary ai-dl">↓ Download PDF</button>
+        </div>
+        <p class="ai-tagline">There are no right answers in the Self-Description; this is guidance, not a verdict. This analysis is saved to your profile.</p>
+        <p id="ai-status" class="ai-status"></p>
+        <div id="ai-body"></div>
+      </div>
+      <div class="t-checklist"><h3>Self-audit checklist</h3><div id="t-checklist-items"></div></div>
+      <div class="t-toolbar">
+        <button id="t-restart" class="btn ghost">New session</button>
+        <a class="btn primary" href="index.html">Back to tests →</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/vendor/jspdf.umd.min.js"></script>
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+  if (!window.V3Store.activeProfile()) { window.location.href = "../index.html"; }
+  window.TRAINER = {
+    mode: "SDT",
+    form: true,
+    seconds: 900,
+    onAnalysis: function (mode, data) { if (window.V3Store) window.V3Store.saveAnalysis(mode, data); },
+    prompts: [
+      "What do your parents think of you? Mention the strengths they see in you and something they wish you would improve.",
+      "What do your teachers, superiors or employers think of you? Draw on real feedback about your work, reliability and conduct.",
+      "What do your friends think of you? Cover how you are as a friend and teammate, and one social trait you are working on.",
+      "What do you think of yourself? Give an honest, balanced view of your strengths and a genuine shortcoming.",
+      "What kind of person do you want to become, and what steps are you taking to get there?"
+    ],
+    checklist: [
+      "Did I write honestly, not the version I think the assessor wants to read?",
+      "Do all four viewpoints (parents, teachers, friends, self) describe the same consistent person?",
+      "Did I back my claims with a real example instead of just adjectives?",
+      "Did I own one genuine, fixable weakness and show I am working on it?",
+      "Is the person I want to become specific, and does it close the loop with that weakness?"
+    ]
+  };
+</script>
+<script src="../assets/trainer.js?v=1"></script>
+</body>
+</html>

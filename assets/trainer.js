@@ -1,0 +1,494 @@
+/* VicThree SSB — shared trainer engine (WAT & SRT).
+   Each practice page sets window.TRAINER before this script loads:
+     window.TRAINER = {
+       mode: "WAT" | "SRT",
+       seconds: 15,                // per-item time
+       items: [...],               // from data/*-practice.js
+       checklist: ["...", "..."]   // self-audit questions
+     }
+   Performance analysis is optional and controlled by window.VICTHREE_CONFIG.aiEndpoint (config.js). */
+(function () {
+  "use strict";
+  var CFG = window.TRAINER || {};
+  var AI = (window.VICTHREE_CONFIG && window.VICTHREE_CONFIG.aiEndpoint) || "";
+  var STORE_KEY = "v3ssb_" + (CFG.mode || "x").toLowerCase();
+
+  var NEGATIVE = ["fear","afraid","scared","cannot","can't","cant","never","impossible","quit","give up","gave up",
+    "hopeless","useless","worthless","fail","failed","failure","sad","cry","cried","depressed","weak","coward","hate",
+    "hated","angry","panic","panicked","worried","tension","nervous","alone","lonely","defeat","defeated","lose","loser",
+    "run away","ran away","helpless","doomed","waste","pointless"];
+  var VIOLENT = ["kill","killed","murder","stab","shoot","destroy","revenge","beat him","beat them","hit him","hit them",
+    "slap","punch","bomb","curse"];
+
+  var S = { items: [], idx: 0, responses: [], remaining: 0, startTs: 0, tick: null, analysis: null, formTotal: 0, formUsed: 0, untimed: false, elapsed: 0 };
+
+  function $(id){ return document.getElementById(id); }
+  function el(t,c,x){ var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e; }
+  function panel(id){ ["t-intro","t-run","t-results"].forEach(function(p){ $(p).classList.toggle("active", p===id); }); window.scrollTo(0,0); }
+  function promptOf(it){ return it.word!=null ? it.word : (it.situation!=null ? it.situation : (it.scenario!=null ? it.scenario : (it.prompt!=null ? it.prompt : (it.label!=null ? it.label : "")))); }
+  function suggLabel(){ return CFG.mode==="SDT" ? "Suggested refinement: " : (CFG.mode==="GPE" ? "A stronger plan: " : ((CFG.mode==="TAT"||CFG.mode==="PPDT") ? "A stronger version: " : "Better alternative: ")); }
+  function tagOf(it){ return it.tag || it.type || ""; }
+  function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t;} return a; }
+
+  /* ---------- run ---------- */
+  function start(){
+    var pool = CFG.items || [];
+    var chosen = shuffle(pool);
+    var sel = $("t-count");
+    var n = sel ? parseInt(sel.value, 10) : 0;
+    if (n > 0 && n < chosen.length) chosen = chosen.slice(0, n);
+    S.items = chosen;
+    S.idx = 0; S.responses = []; S.analysis = null;
+    panel("t-run");
+    render();
+  }
+
+  function render(){
+    var it = S.items[S.idx];
+    var pt = $("t-prompt");
+    if(CFG.mode==="GPE"){
+      $("t-kind").textContent = it.title || "Scenario";
+      pt.className = "gpe-scenario";
+      pt.textContent = promptOf(it);
+      $("t-counter").textContent = "Scenario "+(S.idx+1)+" / "+S.items.length;
+      var nb=$("t-next"); if(nb) nb.textContent = (S.idx>=S.items.length-1) ? "Finish" : "Next →";
+    } else {
+      $("t-kind").textContent = CFG.mode==="WAT" ? "Word" : "Situation";
+      pt.className = CFG.mode==="WAT" ? "t-word" : "t-sit";
+      pt.textContent = promptOf(it);
+      $("t-counter").textContent = (S.idx+1)+" / "+S.items.length;
+    }
+    $("t-progress").firstElementChild.style.width = (S.idx/S.items.length*100)+"%";
+    var inp = $("t-input"); inp.value=""; if(CFG.mode!=="GPE") inp.focus();
+    S.remaining = CFG.seconds; S.startTs = performance.now();
+    drawTimer();
+    clearInterval(S.tick); S.tick = setInterval(onTick, 1000);
+  }
+  function drawTimer(){ var t=$("t-timer"); var big=CFG.seconds>=60; t.textContent = big ? fmtClock(Math.max(0,S.remaining)) : S.remaining; t.classList.toggle("low", S.remaining <= (big?30:5)); }
+  function onTick(){ S.remaining--; drawTimer(); if(S.remaining<=0){ clearInterval(S.tick); commit(); } }
+
+  function commit(){
+    clearInterval(S.tick);
+    var used = Math.min(CFG.seconds, Math.round((performance.now()-S.startTs)/1000));
+    S.responses.push({ item: S.items[S.idx], text: $("t-input").value.trim(), seconds: used });
+    S.idx++;
+    if(S.idx>=S.items.length) finish(); else render();
+  }
+  function skip(){ $("t-input").value=""; commit(); }
+
+  /* ---------- form mode (SDT: all prompts on one screen, one global timer) ---------- */
+  function fmtClock(s){ var m=Math.floor(s/60), x=s%60; return m+":"+(x<10?"0":"")+x; }
+  function startForm(){
+    var sel=$("t-count");
+    var mins = sel ? parseInt(sel.value,10) : 15;
+    S.untimed = !(mins>0);
+    S.formTotal = S.untimed ? 0 : mins*60;
+    S.elapsed = 0;
+    S.responses=[]; S.analysis=null;
+    var host=$("t-form"); host.innerHTML="";
+    (CFG.prompts||[]).forEach(function(q,i){
+      var block=el("div","sdt-item");
+      var lab=el("label","sdt-q"); lab.setAttribute("for","sdt-a"+i);
+      lab.appendChild(el("span","sdt-n",String(i+1)));
+      lab.appendChild(document.createTextNode(" "+q));
+      var ta=document.createElement("textarea"); ta.id="sdt-a"+i; ta.className="sdt-a"; ta.rows=4; ta.setAttribute("autocomplete","off");
+      block.appendChild(lab); block.appendChild(ta); host.appendChild(block);
+    });
+    panel("t-run");
+    // Hide the progress bar when untimed (keep its space so the timer stays right-aligned).
+    var pb=$("t-progress"); if(pb) pb.style.visibility = S.untimed ? "hidden" : "visible";
+    S.remaining=S.formTotal; drawClock();
+    var first=$("sdt-a0"); if(first) first.focus();
+    clearInterval(S.tick); S.tick=setInterval(onFormTick,1000);
+  }
+  function drawClock(){
+    var t=$("t-timer");
+    if(t){
+      if(S.untimed){ t.textContent=fmtClock(S.elapsed); t.classList.remove("low"); }
+      else { t.textContent=fmtClock(Math.max(0,S.remaining)); t.classList.toggle("low", S.remaining<=30); }
+    }
+    var pb=$("t-progress"); if(pb && pb.firstElementChild && !S.untimed && S.formTotal){ pb.firstElementChild.style.width=Math.min(100,(1-S.remaining/S.formTotal)*100)+"%"; }
+  }
+  function onFormTick(){
+    S.elapsed++;
+    if(S.untimed){ drawClock(); return; }
+    S.remaining--; drawClock(); if(S.remaining<=0){ clearInterval(S.tick); finishForm(); }
+  }
+  function finishForm(){
+    clearInterval(S.tick);
+    S.formUsed = S.untimed ? S.elapsed : (S.formTotal - Math.max(0,S.remaining));
+    S.responses = (CFG.prompts||[]).map(function(q,i){
+      var ta=$("sdt-a"+i);
+      return { item:{prompt:q}, text: ta?ta.value.trim():"", seconds:0 };
+    });
+    finish();
+  }
+
+  /* ---------- image mode (TAT: look at a picture, then write a story) ---------- */
+  function startImage(){
+    var sel=$("t-count"); var count = sel ? parseInt(sel.value,10) : 8;
+    var modeSel=$("t-mode"); S.timed = modeSel ? (modeSel.value!=="untimed") : true;
+    var pool = shuffle(CFG.images||[]);
+    if(count>0 && count<pool.length) pool=pool.slice(0,count);
+    S.items = pool.map(function(src,i){ return { image:src, label:"Picture "+(i+1) }; });
+    if(CFG.blankSlide) S.items.push({ blank:true, label:"Blank slide (own picture)" });
+    S.idx=0; S.responses=[]; S.analysis=null; S.elapsed=0;
+    panel("t-run");
+    renderLook();
+  }
+  function tatCounter(){
+    var it=S.items[S.idx];
+    $("t-counter").textContent = (it && it.blank ? "Blank slide" : "Story "+(S.idx+1)) + " / " + S.items.length;
+  }
+  function renderLook(){
+    S.phase="look";
+    var it=S.items[S.idx];
+    var pic=$("t-pic"), img=$("t-pic-img"), blank=$("t-pic-blank");
+    pic.style.display="";
+    if(it.blank){ img.style.display="none"; img.removeAttribute("src"); blank.style.display=""; }
+    else { blank.style.display="none"; img.style.display=""; img.src=it.image; }
+    $("t-input").style.display="none";
+    var perL=$("t-perception"); if(perL) perL.style.display="none";
+    $("t-phase").textContent = it.blank ? "Imagine your own picture" : "Look at the picture";
+    $("t-advance").textContent = "Start writing →";
+    tatCounter();
+    startPhaseTimer(CFG.viewSeconds||30);
+  }
+  function renderWrite(){
+    S.phase="write";
+    $("t-pic").style.display="none";            // picture disappears, as in the real test
+    var inp=$("t-input"); inp.style.display=""; inp.value="";
+    $("t-advance").textContent = (S.idx>=S.items.length-1) ? "Finish" : "Next →";
+    if(CFG.perception){
+      var per=$("t-perception");
+      if(per){
+        per.style.display="";
+        ["pp-chars","pp-age"].forEach(function(id){ var e=$(id); if(e) e.value=""; });
+        var sx=$("pp-sex"); if(sx) sx.selectedIndex=0;
+        var md=$("pp-mood"); if(md) md.selectedIndex=0;
+      }
+      $("t-phase").textContent = "Note your perception, then write the story";
+      var first=$("pp-chars"); if(first) first.focus(); else inp.focus();
+    } else {
+      $("t-phase").textContent = "Write your story";
+      inp.focus();
+    }
+    startPhaseTimer(CFG.writeSeconds||240);
+  }
+  function ppComposeText(){
+    var v=function(id){ var e=$(id); return e?String(e.value).trim():""; };
+    var chars=v("pp-chars"), age=v("pp-age"), sex=v("pp-sex"), mood=v("pp-mood");
+    var story=$("t-input").value.trim();
+    if(!story && !chars && !age) return "";
+    var per="Perception — characters: "+(chars||"?")+"; main character: age "+(age||"?")+", "+(sex||"?")+", "+(mood||"?")+" mood.";
+    return per + "\nStory: " + (story || "[left blank]");
+  }
+  function startPhaseTimer(total){
+    S.phaseTotal=total; S.remaining=total;
+    var pb=$("t-progress"); if(pb) pb.style.visibility = S.timed ? "visible" : "hidden";
+    drawImgTimer();
+    clearInterval(S.tick); S.tick=setInterval(imgTick,1000);
+  }
+  function drawImgTimer(){
+    var t=$("t-timer");
+    if(t){
+      if(S.timed){ t.textContent=fmtClock(Math.max(0,S.remaining)); t.classList.toggle("low", S.remaining<=10); }
+      else { t.textContent=fmtClock(S.elapsed); t.classList.remove("low"); }
+    }
+    // During the look phase, make it explicit that the picture disappears.
+    if(S.phase==="look"){
+      var ph=$("t-phase"), it=S.items[S.idx];
+      if(ph && !(it && it.blank)){
+        ph.textContent = S.timed ? ("Picture hides in "+fmtClock(Math.max(0,S.remaining))) : "Look at the picture, then start writing";
+      }
+    }
+    var pb=$("t-progress"); if(pb && pb.firstElementChild && S.timed && S.phaseTotal){ pb.firstElementChild.style.width=Math.min(100,(1-S.remaining/S.phaseTotal)*100)+"%"; }
+  }
+  function imgTick(){
+    S.elapsed++;
+    if(S.timed){ S.remaining--; drawImgTimer(); if(S.remaining<=0){ clearInterval(S.tick); advancePhase(); } }
+    else drawImgTimer();
+  }
+  function advancePhase(){
+    clearInterval(S.tick);
+    if(S.phase==="look"){ renderWrite(); return; }
+    S.responses.push({ item:S.items[S.idx], text:(CFG.perception?ppComposeText():$("t-input").value.trim()), seconds:0 });
+    S.idx++;
+    if(S.idx>=S.items.length){ S.formUsed=S.elapsed; finish(); }
+    else renderLook();
+  }
+
+  /* ---------- heuristics ---------- */
+  function analyse(text){
+    var f=[]; if(!text){ f.push({t:"Blank — no response"}); return f; }
+    var low=" "+text.toLowerCase()+" ";
+    var words=text.split(/\s+/).filter(Boolean);
+    if(CFG.mode==="WAT" && words.length<3) f.push({t:"Very short"});
+    if(CFG.mode==="SRT" && words.length<4) f.push({t:"Very short"});
+    var v=VIOLENT.filter(function(w){return low.indexOf(w)!==-1;});
+    var n=NEGATIVE.filter(function(w){return low.indexOf(w)!==-1;});
+    if(v.length) f.push({t:"Aggressive/violent tone: "+v.join(", ")});
+    if(n.length) f.push({t:"Negative/defeatist words: "+n.slice(0,4).join(", ")});
+    return f;
+  }
+  function timeFlag(r){ if(!r.text) return null; if(r.seconds>=CFG.seconds) return "Ran out of time"; if(CFG.mode==="WAT"&&r.seconds>CFG.seconds*0.8) return "Slow ("+r.seconds+"s)"; return null; }
+  function fmt(s){ var m=Math.floor(s/60), x=s%60; return m?(m+"m "+x+"s"):(x+"s"); }
+
+  /* ---------- finish + results ---------- */
+  function finish(){
+    clearInterval(S.tick);
+    var pb=$("t-progress"); if(pb && pb.firstElementChild) pb.firstElementChild.style.width="100%";
+    save();
+    buildResults();
+    panel("t-results");
+    if(AI) requestAI();
+  }
+
+  function buildResults(){
+    var R=S.responses;
+    var attempted=R.filter(function(r){return r.text.length>0;}).length;
+
+    var st=$("t-stats"); st.innerHTML="";
+    var pairs;
+    if(CFG.form || CFG.image){
+      pairs=[[CFG.image?"Stories written":"Answered", attempted+" / "+R.length],["Time used",fmt(S.formUsed||0)]];
+    } else {
+      var blanks=R.length-attempted;
+      var total=R.reduce(function(s,r){return s+r.seconds;},0);
+      var avg=R.length?total/R.length:0;
+      pairs=[["Attempted",attempted+" / "+R.length],["Left blank",blanks],["Avg time",avg.toFixed(1)+"s"],["Total",fmt(total)]];
+    }
+    pairs.forEach(function(p){ var c=el("div","t-stat"); c.appendChild(el("div","n",String(p[1]))); c.appendChild(el("div","l",p[0])); st.appendChild(c); });
+
+    // self-audit checklist
+    var cl=$("t-checklist-items"); cl.innerHTML="";
+    (CFG.checklist||[]).forEach(function(q){
+      var lab=el("label"); var cb=document.createElement("input"); cb.type="checkbox";
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(" "+q)); cl.appendChild(lab);
+    });
+  }
+
+  /* ---------- Performance analysis (via Worker) ---------- */
+  // Downscale a picture to a small base64 JPEG so the analyser can see it (same-origin, no taint).
+  function imgToBase64(url, maxDim){
+    return new Promise(function(res){
+      var im=new Image();
+      im.onload=function(){
+        try{
+          var w=im.naturalWidth, h=im.naturalHeight, s=Math.min(1, maxDim/Math.max(w,h));
+          var cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s));
+          var c=document.createElement("canvas"); c.width=cw; c.height=ch;
+          c.getContext("2d").drawImage(im,0,0,cw,ch);
+          res((c.toDataURL("image/jpeg",0.72).split(",")[1])||null);
+        }catch(e){ res(null); }
+      };
+      im.onerror=function(){ res(null); };
+      im.src=url;
+    });
+  }
+  function requestAI(){
+    var box=$("t-ai"); box.style.display="block";
+    var status=$("ai-status");
+    status.innerHTML='<span class="spinner"></span>Analysing your responses… this may take a few moments.';
+    $("ai-body").innerHTML="";
+    var items=S.responses.map(function(r,i){ return { n:i+1, prompt:promptOf(r.item), title:(r.item&&r.item.title)||undefined, tag:tagOf(r.item), response:r.text, seconds:r.seconds }; });
+    var send=function(){
+      fetch(AI, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ mode:CFG.mode, items:items }) })
+        .then(function(res){ if(!res.ok) throw new Error("HTTP "+res.status); return res.json(); })
+        .then(renderAI)
+        .catch(function(err){ status.textContent="Your performance analysis isn't available right now. Your self-review below still works."; });
+    };
+    // For picture tests, attach the (downscaled) picture each story was written from.
+    if(CFG.image){
+      Promise.all(S.responses.map(function(r,i){
+        if(r.item && r.item.image){ return imgToBase64(r.item.image, 640).then(function(b64){ if(b64){ items[i].image=b64; items[i].mimeType="image/jpeg"; } }); }
+        return Promise.resolve();
+      })).then(send, send);
+    } else { send(); }
+  }
+  function renderAI(data){
+    $("ai-status").textContent="";
+    var body=$("ai-body"); body.innerHTML="";
+    S.analysis = (data && typeof data === "object") ? data : null;
+    // Journey hook: let the host page persist this test's structured analysis
+    // to the candidate's profile (used later to build the Perception Report).
+    if(S.analysis && typeof CFG.onAnalysis === "function"){ try{ CFG.onAnalysis(CFG.mode, S.analysis); }catch(e){} }
+    if(typeof data==="string"){ body.appendChild(el("p",null,data)); return; }
+    if(data.summary){ var c1=el("div","ai-card snapshot"); c1.appendChild(el("h4",null,"Personality snapshot")); c1.appendChild(el("p",null,data.summary)); body.appendChild(c1); }
+    var reflected = data.olqs_reflected || data.strengths;
+    if(reflected&&reflected.length){ var c2=el("div","ai-card reflected"); c2.appendChild(el("h4",null,"Officer-Like Qualities reflected")); var u=el("ul"); reflected.forEach(function(s){u.appendChild(el("li",null,s));}); c2.appendChild(u); body.appendChild(c2); }
+    var work = data.olqs_to_work_on || data.improve;
+    if(work&&work.length){ var c3=el("div","ai-card work"); c3.appendChild(el("h4",null,"OLQs to work on")); var u2=el("ul"); work.forEach(function(s){u2.appendChild(el("li",null,s));}); c3.appendChild(u2); body.appendChild(c3); }
+    if(data.items&&data.items.length){
+      data.items.forEach(function(it){
+        var d=el("div","ai-item");
+        d.appendChild(el("div","qn","#"+(it.n||"")+"  "+(it.prompt||"")));
+        var resp=(S.responses[(it.n||0)-1]||{}).text;
+        var yr=el("p","ai-your"); yr.appendChild(el("strong",null,CFG.mode==="TAT"?"Your story: ":(CFG.mode==="PPDT"?"Your perception & story: ":(CFG.mode==="GPE"?"Your plan: ":"Your response: ")))); yr.appendChild(document.createTextNode(resp||"(left blank)")); d.appendChild(yr);
+        if(it.comment) d.appendChild(el("p",null,it.comment));
+        if(it.suggestion){ var s=el("p"); s.appendChild(el("strong",null,suggLabel())); var span=el("span","sugg",it.suggestion); s.appendChild(span); d.appendChild(s); }
+        body.appendChild(d);
+      });
+    }
+    if(!body.childNodes.length) body.appendChild(el("p",null,"(No analysis returned.)"));
+  }
+
+  /* ---------- copy responses (helper) ---------- */
+  function copyText(){
+    var lines=[];
+    lines.push("You are an experienced SSB (Services Selection Board) psychologist.");
+    lines.push("Analyse my "+CFG.mode+" responses for Officer-Like Qualities (OLQs).");
+    lines.push("For each item, comment on positivity, practicality/realism and the OLQs shown, and give one sharper response. End with an overall summary of my strengths and the 2-3 things to work on.");
+    lines.push(""); lines.push("=== My "+CFG.mode+" responses ===");
+    S.responses.forEach(function(r,i){
+      var label=CFG.mode==="WAT" ? ("Word: "+promptOf(r.item)) : ("Situation: "+promptOf(r.item));
+      lines.push((i+1)+". "+label+(tagOf(r.item)?"  ["+tagOf(r.item)+"]":""));
+      lines.push("   My response ("+r.seconds+"s): "+(r.text||"[left blank]"));
+    });
+    var text=lines.join("\n");
+    var done=function(){ var n=$("t-copynote"); n.style.display="block"; setTimeout(function(){n.style.display="none";},4000); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,function(){fallback(text);done();});
+    else { fallback(text); done(); }
+  }
+  function fallback(text){ var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(e){} document.body.removeChild(ta); }
+
+  /* ---------- localStorage ---------- */
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify({ when:new Date().toISOString(), responses:S.responses.map(function(r){return {prompt:promptOf(r.item),tag:tagOf(r.item),text:r.text,seconds:r.seconds};}) })); }catch(e){}
+  }
+  function hasSaved(){ try{ return !!localStorage.getItem(STORE_KEY); }catch(e){ return false; } }
+  function loadSaved(){
+    try{
+      var d=JSON.parse(localStorage.getItem(STORE_KEY)); if(!d) return;
+      S.responses=d.responses.map(function(x){ return { item: (CFG.image?{label:x.prompt}:(CFG.form?{prompt:x.prompt}:(CFG.mode==="WAT"?{word:x.prompt,type:x.tag}:{situation:x.prompt,tag:x.tag}))), text:x.text, seconds:x.seconds }; });
+      buildResults(); panel("t-results");
+    }catch(e){}
+  }
+
+  /* ---------- download report (direct PDF via jsPDF, no print dialog) ---------- */
+  function downloadReport(){
+    var img=document.querySelector(".brand-img");
+    if(img && img.src){
+      fetch(img.src).then(function(r){return r.blob();}).then(function(b){
+        var fr=new FileReader();
+        fr.onload=function(){ buildPdf(fr.result, img.naturalWidth||0, img.naturalHeight||0); };
+        fr.onerror=function(){ buildPdf(null,0,0); };
+        fr.readAsDataURL(b);
+      }).catch(function(){ buildPdf(null,0,0); });
+    } else { buildPdf(null,0,0); }
+  }
+  function buildPdf(banner, bw, bh){
+    var JS = window.jspdf && window.jspdf.jsPDF;
+    if(!JS){ alert("The PDF tool didn't finish loading. Please reconnect and tap Download PDF again."); return; }
+    var R=S.responses, A=S.analysis, mode=CFG.mode;
+    var testName = mode==="SRT" ? "Situation Reaction Test (SRT)" : (mode==="SDT" ? "Self-Description Test (SDT)" : (mode==="TAT" ? "Thematic Apperception Test (TAT)" : (mode==="PPDT" ? "Picture Perception & Description Test (PPDT)" : (mode==="GPE" ? "Group Planning Exercise (GPE)" : "Word Association Test (WAT)"))));
+    var storyMode = (mode==="TAT"||mode==="PPDT");
+    var when = new Date().toLocaleString();
+    var attempted = R.filter(function(r){return r.text.length>0;}).length;
+
+    var doc=new JS({unit:"pt", format:"a4"});
+    var PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+    var M=42, x=M, y=M, cw=PW-2*M;
+    var navy=[15,35,64], ink=[28,35,49], soft=[74,82,101], green=[63,107,58], gold2=[138,109,30];
+
+    function br(h){ if(y+h > PH-M){ doc.addPage(); y=M; } }
+    // wrapped text with per-line page breaks; advances y
+    function text(str, o){
+      o=o||{};
+      var size=o.size||11, lh=o.lh||Math.round(size*1.4), col=o.color||ink, font=o.font||"times", style=o.style||"normal";
+      var maxw=(o.maxw!=null?o.maxw:cw), xx=(o.x!=null?o.x:x);
+      doc.setFont(font,style); doc.setFontSize(size); doc.setTextColor(col[0],col[1],col[2]);
+      var arr=doc.splitTextToSize(String(str), maxw);
+      for(var i=0;i<arr.length;i++){ br(lh); doc.text(arr[i], xx, y+size*0.9); y+=lh; }
+      if(o.gap) y+=o.gap;
+    }
+    // coloured card: title + optional paragraph + optional bullet list
+    function card(bg, headCol, title, bodyStr, bullets){
+      var pad=13, iw=cw-2*pad, lhT=14, lhB=15.4;
+      doc.setFont("helvetica","bold"); doc.setFontSize(10.5);
+      var tl=doc.splitTextToSize(title, iw);
+      doc.setFont("times","normal"); doc.setFontSize(11);
+      var bl = bodyStr ? doc.splitTextToSize(bodyStr, iw) : [];
+      var bu=[]; if(bullets){ bullets.forEach(function(s){ bu=bu.concat(doc.splitTextToSize("•  "+s, iw)); }); }
+      var h = pad + tl.length*lhT + 5 + (bl.length+bu.length)*lhB + pad;
+      if(y+h > PH-M){ doc.addPage(); y=M; }
+      doc.setFillColor(bg[0],bg[1],bg[2]); doc.roundedRect(x,y,cw,h,7,7,"F");
+      var cy=y+pad;
+      doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(headCol[0],headCol[1],headCol[2]);
+      tl.forEach(function(t){ doc.text(t, x+pad, cy+9); cy+=lhT; });
+      cy+=5;
+      doc.setFont("times","normal"); doc.setFontSize(11); doc.setTextColor(ink[0],ink[1],ink[2]);
+      bl.forEach(function(t){ doc.text(t, x+pad, cy+9); cy+=lhB; });
+      bu.forEach(function(t){ doc.text(t, x+pad, cy+9); cy+=lhB; });
+      y += h + 13;
+    }
+
+    // Banner on a navy bar
+    if(banner && bw>0 && bh>0){
+      var bpad=14, iw=cw-2*bpad, ih=iw*(bh/bw), rectH=ih+2*bpad;
+      br(rectH+8);
+      doc.setFillColor(navy[0],navy[1],navy[2]); doc.roundedRect(x,y,cw,rectH,8,8,"F");
+      try{ doc.addImage(banner,"PNG", x+bpad, y+bpad, iw, ih); }catch(e){}
+      y += rectH + 16;
+    }
+    // Title, meta, stat
+    text("Performance Report", {font:"times", style:"bold", size:22, color:navy, lh:26});
+    text(testName+"   ·   "+when, {font:"helvetica", style:"normal", size:9.5, color:soft, lh:14, gap:4});
+    text((mode==="SDT"?"Answered ":(storyMode?"Wrote ":(mode==="GPE"?"Planned ":"Attempted ")))+attempted+" of "+R.length+(storyMode?" stories.":(mode==="GPE"?" scenarios.":".")), {font:"times", style:"normal", size:11.5, color:ink, gap:10});
+
+    // Analysis cards
+    if(A){
+      if(A.summary) card([238,242,248], navy, "Personality snapshot", A.summary, null);
+      var refl=A.olqs_reflected||A.strengths;
+      if(refl&&refl.length) card([238,244,236], green, "Officer-Like Qualities reflected", null, refl);
+      var work=A.olqs_to_work_on||A.improve;
+      if(work&&work.length) card([248,242,226], gold2, "OLQs to work on", null, work);
+    }
+
+    // Response-by-response
+    y+=4;
+    text(mode==="SDT"?"Prompt-by-prompt":(storyMode?"Story-by-story":(mode==="GPE"?"Scenario-by-scenario":"Response-by-response")), {font:"times", style:"bold", size:15, color:navy, lh:20, gap:2});
+    R.forEach(function(r,i){
+      var it=(A&&A.items)?A.items.filter(function(z){return z.n===(i+1);})[0]:null;
+      br(30);
+      y+=5; doc.setDrawColor(228,225,214); doc.setLineWidth(0.6); doc.line(x,y,x+cw,y); y+=9;
+      text("#"+(i+1)+"   "+promptOf(r.item), {font:"helvetica", style:"bold", size:10.5, color:navy, lh:14});
+      text((mode==="TAT"?"Your story: ":(mode==="PPDT"?"Your perception & story: ":(mode==="GPE"?"Your plan: ":"Your response: ")))+(r.text||"(left blank)"), {font:"times", style:"normal", size:11, color:soft});
+      if(it&&it.comment) text(it.comment, {font:"times", style:"normal", size:11, color:ink});
+      if(it&&it.suggestion) text(suggLabel()+it.suggestion, {font:"times", style:"italic", size:11, color:green});
+      y+=3;
+    });
+
+    // Footer note
+    y+=8; br(30);
+    text("There are no official correct answers in the SSB psychology tests. This report is guidance to help improve your performance, not a verdict.", {font:"helvetica", style:"normal", size:9, color:soft, lh:13});
+
+    doc.save("VicThree-SSB-"+mode+"-Report.pdf");
+  }
+
+  /* ---------- wire ---------- */
+  document.addEventListener("DOMContentLoaded", function(){
+    $("t-start").addEventListener("click", CFG.image ? startImage : (CFG.form ? startForm : start));
+    var nextBtn=$("t-next"); if(nextBtn) nextBtn.addEventListener("click", commit);
+    var skipBtn=$("t-skip"); if(skipBtn) skipBtn.addEventListener("click", skip);
+    var finishBtn=$("t-finish"); if(finishBtn) finishBtn.addEventListener("click", finishForm);
+    var advBtn=$("t-advance"); if(advBtn) advBtn.addEventListener("click", advancePhase);
+    $("t-quit").addEventListener("click", function(){ clearInterval(S.tick); panel("t-intro"); });
+    $("t-restart").addEventListener("click", function(){ panel("t-intro"); });
+    var dlBtn=$("t-download"); if(dlBtn) dlBtn.addEventListener("click", downloadReport);
+    var copyBtn=$("t-copy"); if(copyBtn) copyBtn.addEventListener("click", copyText);
+    // Enter-to-advance only in single-line item modes (WAT/SRT); stories, self-description and plans need newlines.
+    if(!CFG.form && !CFG.image && CFG.mode!=="GPE"){ var ti=$("t-input"); if(ti) ti.addEventListener("keydown", function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); commit(); } }); }
+    if(hasSaved()){ var link=$("t-resume"); link.style.display="inline-block"; link.addEventListener("click", function(e){ e.preventDefault(); loadSaved(); }); }
+    if(!AI){ var hint=$("ai-off-hint"); if(hint) hint.style.display="block"; }
+    // Keep the timer/progress header aligned to the top of the visible area
+    // when the on-screen keyboard opens (safety net for browsers that pin
+    // sticky elements to the layout viewport rather than the visual one).
+    if(window.visualViewport){
+      var vv=window.visualViewport;
+      var pin=function(){ var h=$("t-head-el")||document.querySelector("#t-run .t-head"); if(h) h.style.top=Math.max(0, vv.offsetTop)+"px"; };
+      vv.addEventListener("resize", pin);
+      vv.addEventListener("scroll", pin);
+    }
+  });
+})();

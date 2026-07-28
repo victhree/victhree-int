@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VicThree SSB Personal Interview Trainer</title>
+<meta name="description" content="Simulate the full SSB personal interview: psychology tests, PIQ, a consolidated perception report, and a dynamic, time-bound interview with an interviewing officer." />
+<link rel="icon" href="assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="assets/styles.css?v=1" />
+<link rel="stylesheet" href="assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img class="brand-img" src="assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a>
+  </div>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section id="login" class="login-wrap" style="display:none">
+    <div class="login-card">
+      <p class="eyebrow">Personal Interview Trainer</p>
+      <h1>Begin your board</h1>
+      <p class="lede">Enter a name to start a local profile. Everything you do, your tests, PIQ, perception report and interview, is saved privately on this device under that name.</p>
+      <div class="login-row">
+        <input id="login-name" type="text" placeholder="Your name" autocomplete="off" />
+        <button id="login-go" class="btn primary">Start</button>
+      </div>
+      <ul id="profile-list" class="profile-list"></ul>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="dash" style="display:none">
+    <nav id="journey" class="journey" data-base="" data-current=""></nav>
+    <div class="wrap">
+      <div class="dash-head">
+        <div>
+          <p class="eyebrow">Your journey</p>
+          <h1 style="margin:0">Officer Selection Board</h1>
+        </div>
+        <div class="who">Signed in as <b id="who-name">—</b> · <button id="switch" class="link-btn">Switch profile</button></div>
+      </div>
+
+      <div class="step-cards" id="step-cards"></div>
+
+      <p class="foot-note dim" style="max-width:60ch;margin:0 auto">There are no official correct answers here. This trainer is guidance to help you prepare, not a verdict.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <p class="join-label">Join the Journey</p>
+  <nav class="foot-social">
+    <a href="https://youtube.com/@victhreedefence" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M23 7.5a3 3 0 0 0-2.1-2.1C19 4.9 12 4.9 12 4.9s-7 0-8.9.5A3 3 0 0 0 1 7.5 31 31 0 0 0 .5 12 31 31 0 0 0 1 16.5a3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5A3 3 0 0 0 23 16.5 31 31 0 0 0 23.5 12 31 31 0 0 0 23 7.5zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg></a>
+    <a href="https://www.instagram.com/victhreedefence" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/></svg></a>
+    <a href="https://t.me/anmolxsharma" target="_blank" rel="noopener" title="Telegram" aria-label="Telegram"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M9.8 16.2l-.35 3.9c.5 0 .72-.22.98-.48l2.36-2.26 4.9 3.58c.9.5 1.54.24 1.78-.83l3.23-15.13c.32-1.34-.48-1.86-1.35-1.54L1.15 9.3C-.16 9.82-.14 10.56.93 10.9l5.02 1.56L17.9 5.1c.55-.36 1.05-.16.64.2L9.8 16.2z"/></svg></a>
+  </nav>
+  <p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p>
+</footer>
+
+<script src="assets/store.js?v=1"></script>
+<script src="assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function show(which) {
+    $("login").style.display = which === "login" ? "block" : "none";
+    $("dash").style.display  = which === "dash"  ? "block" : "none";
+  }
+
+  function renderProfiles() {
+    var ul = $("profile-list"); ul.innerHTML = "";
+    var list = Store.listProfiles();
+    if (!list.length) return;
+    var head = document.createElement("li");
+    head.style.background = "transparent"; head.style.border = "none"; head.style.padding = "6px 2px";
+    head.innerHTML = '<span class="small muted">or continue as</span>';
+    ul.appendChild(head);
+    list.forEach(function (name) {
+      var li = document.createElement("li");
+      var pn = document.createElement("span"); pn.className = "pname"; pn.textContent = name;
+      pn.onclick = function () { Store.setActiveProfile(name); enterDash(); };
+      var del = document.createElement("button"); del.className = "pdel"; del.textContent = "delete";
+      del.onclick = function (e) {
+        e.stopPropagation();
+        if (confirm('Delete profile "' + name + '" and all its data on this device?')) { Store.deleteProfile(name); renderProfiles(); }
+      };
+      li.appendChild(pn); li.appendChild(del); ul.appendChild(li);
+    });
+  }
+
+  function createFromInput() {
+    var name = ($("login-name").value || "").trim();
+    if (!name) { $("login-name").focus(); return; }
+    Store.createProfile(name);
+    enterDash();
+  }
+
+  var STEPS = [
+    { key: "tests", n: 1, title: "Psychology Tests", href: "tests/index.html",
+      desc: "Run the battery, PPDT, TAT, WAT, SRT and SDT, so the board can read your personality." },
+    { key: "report", n: 2, title: "Perception Report", href: "perception/index.html",
+      desc: "Merge every test into one consolidated read of your temperament and Officer-Like Qualities." },
+    { key: "piq", n: 3, title: "PIQ Form", href: "piq/index.html",
+      desc: "Fill your Personal Information Questionnaire, the factual basis the officer interviews you on." },
+    { key: "interview", n: 4, title: "Personal Interview", href: "interview/index.html",
+      desc: "Face a time-bound interview that adapts to your answers, PIQ and perception report." },
+    { key: "assessment", n: 5, title: "Interview Analysis", href: "report/index.html",
+      desc: "Get your consolidated assessment, consistency notes and a downloadable report." }
+  ];
+
+  function statusFor(key, p) {
+    if (key === "tests") {
+      if (p.tests >= p.testsTotal) return { cls: "done", txt: "Complete · " + p.tests + " / " + p.testsTotal };
+      if (p.tests > 0) return { cls: "active", txt: "In progress · " + p.tests + " / " + p.testsTotal };
+      return { cls: "", txt: "Not started" };
+    }
+    if (key === "report")     return p.report ? { cls: "done", txt: "Ready" } : (p.tests > 0 ? { cls: "active", txt: "Ready to build" } : { cls: "locked", txt: "Do a test first" });
+    if (key === "piq")        return p.piq ? { cls: "done", txt: "Saved" } : { cls: "", txt: "Not started" };
+    if (key === "interview")  {
+      if (!p.piq) return { cls: "locked", txt: "Fill your PIQ first" };
+      if (p.interview === "done") return { cls: "done", txt: "Completed" };
+      if (p.interview === "in-progress") return { cls: "active", txt: "In progress · resume" };
+      return { cls: "", txt: "Ready to begin" };
+    }
+    if (key === "assessment") {
+      if (p.assessment) return { cls: "done", txt: "Ready" };
+      if (p.interview !== "none") return { cls: "active", txt: "Generate from your interview" };
+      return { cls: "locked", txt: "Finish the interview first" };
+    }
+    return { cls: "", txt: "" };
+  }
+
+  function renderDash() {
+    var name = Store.activeProfile();
+    $("who-name").textContent = name || "—";
+    var p = Store.progress();
+    var host = $("step-cards"); host.innerHTML = "";
+    STEPS.forEach(function (s) {
+      var st = statusFor(s.key, p);
+      var locked = st.cls === "locked";
+      var a = document.createElement(locked ? "div" : "a");
+      a.className = "step-card " + st.cls;
+      if (!locked) a.href = s.href;
+      a.innerHTML =
+        '<span class="sc-n">' + (st.cls === "done" ? "✓" : s.n) + '</span>' +
+        '<span class="sc-body"><h3>' + s.title + '</h3><p>' + s.desc + '</p>' +
+        '<span class="sc-status">' + st.txt + '</span></span>';
+      host.appendChild(a);
+    });
+    if (window.V3Journey) window.V3Journey.renderTracker();
+  }
+
+  function enterDash() { show("dash"); renderDash(); }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    $("login-go").addEventListener("click", createFromInput);
+    $("login-name").addEventListener("keydown", function (e) { if (e.key === "Enter") createFromInput(); });
+    $("switch").addEventListener("click", function () { try { localStorage.removeItem("v3iv_active"); } catch (e) {} show("login"); renderProfiles(); $("login-name").value = ""; $("login-name").focus(); });
+
+    if (Store.activeProfile()) { enterDash(); }
+    else { show("login"); renderProfiles(); }
+  });
+})();
+</script>
+</body>
+</html>

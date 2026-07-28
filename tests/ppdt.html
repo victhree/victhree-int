@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>Picture Perception & Description Test | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Timed PPDT: view a hazy picture, note your perception, then write a hero story. Analysis saved to your profile." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="tests"></nav>
+  <div class="wrap trainer-wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › <a href="index.html">Tests</a> › PPDT</p>
+    <div class="trainer-head">
+      <div class="th-titles">
+        <p class="eyebrow">Screening test</p>
+        <h1>Picture Perception &amp; Description</h1>
+      </div>
+      <p class="t-sub">View each hazy picture for about 30 seconds, note your perception, then the picture goes away and you write a short hero story. Keep it positive, realistic and around 80 to 100 words.</p>
+    </div>
+
+    <section id="t-intro" class="t-panel active">
+      <div class="t-controls">
+        <label class="t-count-label" for="t-count">Choose your session</label>
+        <div class="t-count-row">
+          <select id="t-count">
+            <option value="1">1 picture</option>
+            <option value="5" selected>5 pictures</option>
+            <option value="10">10 pictures</option>
+            <option value="0">All</option>
+          </select>
+          <select id="t-mode">
+            <option value="timed" selected>Timed</option>
+            <option value="untimed">Untimed</option>
+          </select>
+          <button id="t-start" class="btn primary">Start</button>
+        </div>
+        <a href="#" id="t-resume" class="link-btn" style="display:none">View your last session's review →</a>
+      </div>
+    </section>
+
+    <section id="t-run" class="t-panel">
+      <div class="t-head">
+        <span id="t-counter" class="t-count">Story 1 / 5</span>
+        <div id="t-progress" class="t-bar"><div></div></div>
+        <span id="t-timer" class="t-timer">0:30</span>
+      </div>
+      <p id="t-phase" class="tat-phase">Look at the picture</p>
+      <div id="t-pic" class="tat-pic">
+        <img id="t-pic-img" alt="PPDT picture" />
+        <div id="t-pic-blank" class="tat-blank" style="display:none"></div>
+      </div>
+      <div id="t-perception" class="pp-grid" style="display:none">
+        <div class="pp-field"><label for="pp-chars">Characters</label><input id="pp-chars" type="number" min="0" inputmode="numeric" /></div>
+        <div class="pp-field"><label for="pp-age">Main age</label><input id="pp-age" type="number" min="0" inputmode="numeric" /></div>
+        <div class="pp-field"><label for="pp-sex">Sex</label><select id="pp-sex"><option value="">–</option><option>M</option><option>F</option><option>P</option></select></div>
+        <div class="pp-field"><label for="pp-mood">Mood</label><select id="pp-mood"><option value="">–</option><option value="Positive">Positive</option><option value="Negative">Negative</option><option value="Neutral">Neutral</option></select></div>
+      </div>
+      <textarea id="t-input" class="tat-story" rows="6" placeholder="Write your story: what led to the scene, what the hero does, and a positive outcome…" autocomplete="off" style="display:none"></textarea>
+      <div class="t-actions">
+        <button id="t-advance" class="btn primary">Start writing →</button>
+      </div>
+      <p class="t-hint">One clear hero who takes initiative and solves the problem. Keep it positive, realistic, about 80 to 100 words.</p>
+      <p style="margin-top:10px"><button id="t-quit" class="link-btn">Quit</button></p>
+    </section>
+
+    <section id="t-results" class="t-panel">
+      <h2>Your session review</h2>
+      <div id="t-stats" class="t-stats"></div>
+      <div id="t-ai" class="ai-box" style="display:none">
+        <div class="ai-head">
+          <h3>Your Performance Analysis</h3>
+          <button id="t-download" class="btn primary ai-dl">↓ Download PDF</button>
+        </div>
+        <p class="ai-tagline">There are no right answers in the PPDT; this is guidance, not a verdict. This analysis is saved to your profile.</p>
+        <p id="ai-status" class="ai-status"></p>
+        <div id="ai-body"></div>
+      </div>
+      <div class="t-checklist"><h3>Self-audit checklist</h3><div id="t-checklist-items"></div></div>
+      <div class="t-toolbar">
+        <button id="t-restart" class="btn ghost">New session</button>
+        <a class="btn primary" href="index.html">Back to tests →</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/vendor/jspdf.umd.min.js"></script>
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script src="../data/ppdt-pictures.js?v=1"></script>
+<script>
+  if (!window.V3Store.activeProfile()) { window.location.href = "../index.html"; }
+  window.TRAINER = {
+    mode: "PPDT",
+    image: true,
+    perception: true,
+    viewSeconds: 30,
+    writeSeconds: 240,
+    images: window.PPDT_PICTURES,
+    onAnalysis: function (mode, data) { if (window.V3Store) window.V3Store.saveAnalysis(mode, data); },
+    checklist: [
+      "Did my perception (characters, age, sex, mood) match the story I wrote?",
+      "Was there one clear, positive hero who took initiative?",
+      "Did I use a cause, action and positive outcome structure?",
+      "Was it realistic, around 80 to 100 words, with no violence or heroics?"
+    ]
+  };
+</script>
+<script src="../assets/trainer.js?v=1"></script>
+</body>
+</html>

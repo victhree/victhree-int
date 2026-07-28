@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Perception Report | VicThree SSB Interview Trainer</title>
+<meta name="description" content="A consolidated psychologist's report merging your psychology tests into one read of temperament and Officer-Like Qualities." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="report"></nav>
+  <div class="wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › Perception Report</p>
+    <h1>Perception Report</h1>
+    <p class="lede">This is the psychologist's consolidated read of you, merging every psychology test you have taken into one picture of temperament and Officer-Like Qualities. The interviewing officer uses it to decide what to probe.</p>
+
+    <div id="gate" class="gate" style="display:none">
+      <h3>Take a test first</h3>
+      <p>Your Perception Report is built from your psychology tests. Complete at least one test, then come back here.</p>
+      <a class="btn primary" href="../tests/index.html">Go to psychology tests →</a>
+    </div>
+
+    <div id="controls" style="display:none">
+      <p id="src-note" class="muted small"></p>
+      <div class="t-toolbar">
+        <button id="build" class="btn primary">Build Perception Report</button>
+        <button id="rebuild" class="btn ghost" style="display:none">Rebuild from latest tests</button>
+      </div>
+    </div>
+
+    <p id="status" class="ai-status" style="font-family:var(--sans)"></p>
+    <div id="report-body"></div>
+
+    <div id="next-nav" class="page-foot-nav" style="display:none">
+      <a href="../tests/index.html">← Tests</a>
+      <a href="../piq/index.html">Fill your PIQ →</a>
+    </div>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script>
+(function () {
+  var Store = window.V3Store;
+  if (!Store.activeProfile()) { window.location.href = "../index.html"; return; }
+  var AI = (window.VICTHREE_CONFIG && window.VICTHREE_CONFIG.aiEndpoint) || "";
+  var $ = function (id) { return document.getElementById(id); };
+
+  function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+
+  function renderReport(r) {
+    var body = $("report-body"); body.innerHTML = "";
+    if (!r) return;
+    if (r.temperament) {
+      var t = el("div", "ai-card snapshot");
+      t.appendChild(el("h4", null, "Temperament"));
+      t.appendChild(el("p", null, r.temperament));
+      body.appendChild(t);
+    }
+    if (r.summary) {
+      var s = el("div", "ai-card snapshot");
+      s.appendChild(el("h4", null, "Consolidated read"));
+      s.appendChild(el("p", null, r.summary));
+      body.appendChild(s);
+    }
+    if (r.olqs_strong && r.olqs_strong.length) {
+      var c = el("div", "ai-card reflected"); c.appendChild(el("h4", null, "Dominant Officer-Like Qualities"));
+      var u = el("ul"); r.olqs_strong.forEach(function (x) { u.appendChild(el("li", null, x)); }); c.appendChild(u); body.appendChild(c);
+    }
+    if (r.olqs_to_work_on && r.olqs_to_work_on.length) {
+      var c2 = el("div", "ai-card work"); c2.appendChild(el("h4", null, "Areas to strengthen"));
+      var u2 = el("ul"); r.olqs_to_work_on.forEach(function (x) { u2.appendChild(el("li", null, x)); }); c2.appendChild(u2); body.appendChild(c2);
+    }
+    if (r.probe_areas && r.probe_areas.length) {
+      var c3 = el("div", "ai-card consistency-card"); c3.appendChild(el("h4", null, "What the officer will probe"));
+      var u3 = el("ul"); r.probe_areas.forEach(function (x) { u3.appendChild(el("li", null, x)); }); c3.appendChild(u3); body.appendChild(c3);
+    }
+    $("next-nav").style.display = "flex";
+  }
+
+  function build() {
+    if (!AI) { $("status").textContent = "The report service is not configured. Add your Worker URL in assets/config.js."; return; }
+    var list = Store.analysesList();
+    if (!list.length) return;
+    $("status").innerHTML = '<span class="spinner"></span>Consolidating your psychology tests into one report…';
+    $("build").disabled = true; $("rebuild").disabled = true;
+    fetch(AI, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "REPORT", analyses: list })
+    })
+      .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+      .then(function (data) {
+        if (data && data.error) throw new Error(data.error);
+        $("status").textContent = "";
+        Store.setReport(data);
+        renderReport(data);
+        $("build").style.display = "none"; $("rebuild").style.display = "inline-block"; $("rebuild").disabled = false;
+        window.V3Journey.renderTracker();
+      })
+      .catch(function () {
+        $("status").textContent = "The report could not be built right now. Please check your connection and try again.";
+        $("build").disabled = false; $("rebuild").disabled = false;
+      });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var a = Store.getAnalyses();
+    var keys = Object.keys(a);
+    if (!keys.length) { $("gate").style.display = "block"; return; }
+
+    $("controls").style.display = "block";
+    $("src-note").textContent = "Built from: " + keys.join(", ") + " (" + keys.length + " of 5 tests).";
+
+    var existing = Store.getReport();
+    if (existing) {
+      renderReport(existing);
+      $("build").style.display = "none";
+      $("rebuild").style.display = "inline-block";
+    }
+    $("build").addEventListener("click", build);
+    $("rebuild").addEventListener("click", build);
+  });
+})();
+</script>
+</body>
+</html>

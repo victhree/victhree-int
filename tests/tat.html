@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>Thematic Apperception Test | VicThree SSB Interview Trainer</title>
+<meta name="description" content="Timed TAT: view each hazy picture for 30 seconds, then write a story in 4 minutes. Analysis saved to your profile." />
+<link rel="icon" href="../assets/shield-192.png?v=1"><link rel="icon" sizes="32x32" href="../assets/shield-32.png?v=1"><link rel="apple-touch-icon" href="../assets/shield-180.png?v=1" />
+<link rel="stylesheet" href="../assets/styles.css?v=1" />
+<link rel="stylesheet" href="../assets/iv.css?v=1" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap"><a class="brand" href="../index.html"><img class="brand-img" src="../assets/banner.png" alt="VicThree Defence, by Anmol Sharma" /></a></div>
+</header>
+
+<main>
+  <nav id="journey" class="journey" data-base="../" data-current="tests"></nav>
+  <div class="wrap trainer-wrap">
+    <p class="breadcrumb"><a href="../index.html">Dashboard</a> › <a href="index.html">Tests</a> › TAT</p>
+    <div class="trainer-head">
+      <div class="th-titles">
+        <p class="eyebrow">Psychology test</p>
+        <h1>Thematic Apperception Test</h1>
+      </div>
+      <p class="t-sub">Look at each hazy picture for about 30 seconds, then it goes away and you get roughly 4 minutes to write a story around a hero. Keep it positive, realistic and action-oriented. The last slide is blank.</p>
+    </div>
+
+    <section id="t-intro" class="t-panel active">
+      <div class="t-controls">
+        <label class="t-count-label" for="t-count">Choose your session</label>
+        <div class="t-count-row">
+          <select id="t-count">
+            <option value="5">Half TAT (5)</option>
+            <option value="11" selected>Full TAT (11)</option>
+            <option value="0">All</option>
+          </select>
+          <select id="t-mode">
+            <option value="timed" selected>Timed</option>
+            <option value="untimed">Untimed</option>
+          </select>
+          <button id="t-start" class="btn primary">Start</button>
+        </div>
+        <a href="#" id="t-resume" class="link-btn" style="display:none">View your last session's review →</a>
+      </div>
+    </section>
+
+    <section id="t-run" class="t-panel">
+      <div class="t-head">
+        <span id="t-counter" class="t-count">Story 1 / 11</span>
+        <div id="t-progress" class="t-bar"><div></div></div>
+        <span id="t-timer" class="t-timer">0:30</span>
+      </div>
+      <p id="t-phase" class="tat-phase">Look at the picture</p>
+      <div id="t-pic" class="tat-pic">
+        <img id="t-pic-img" alt="TAT picture" />
+        <div id="t-pic-blank" class="tat-blank" style="display:none">Imagine your own picture, then write its story.</div>
+      </div>
+      <textarea id="t-input" class="tat-story" rows="6" placeholder="Write your story: what led to the scene, what is happening, what the hero thinks and feels, and how it ends…" autocomplete="off" style="display:none"></textarea>
+      <div class="t-actions">
+        <button id="t-advance" class="btn primary">Start writing →</button>
+      </div>
+      <p class="t-hint">Build your story around one hero: their age, mood, what they want, the action they take, and a positive outcome.</p>
+      <p style="margin-top:10px"><button id="t-quit" class="link-btn">Quit</button></p>
+    </section>
+
+    <section id="t-results" class="t-panel">
+      <h2>Your session review</h2>
+      <div id="t-stats" class="t-stats"></div>
+      <div id="t-ai" class="ai-box" style="display:none">
+        <div class="ai-head">
+          <h3>Your Performance Analysis</h3>
+          <button id="t-download" class="btn primary ai-dl">↓ Download PDF</button>
+        </div>
+        <p class="ai-tagline">There are no right answers in the TAT; this is guidance, not a verdict. This analysis is saved to your profile.</p>
+        <p id="ai-status" class="ai-status"></p>
+        <div id="ai-body"></div>
+      </div>
+      <div class="t-checklist"><h3>Self-audit checklist</h3><div id="t-checklist-items"></div></div>
+      <div class="t-toolbar">
+        <button id="t-restart" class="btn ghost">New session</button>
+        <a class="btn primary" href="index.html">Back to tests →</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
+
+<script src="../assets/vendor/jspdf.umd.min.js"></script>
+<script src="../assets/config.js?v=1"></script>
+<script src="../assets/store.js?v=1"></script>
+<script src="../assets/journey.js?v=1"></script>
+<script src="../data/tat-pictures.js?v=1"></script>
+<script>
+  if (!window.V3Store.activeProfile()) { window.location.href = "../index.html"; }
+  window.TRAINER = {
+    mode: "TAT",
+    image: true,
+    viewSeconds: 30,
+    writeSeconds: 240,
+    blankSlide: true,
+    images: window.TAT_PICTURES,
+    onAnalysis: function (mode, data) { if (window.V3Store) window.V3Store.saveAnalysis(mode, data); },
+    checklist: [
+      "Did every story have one clear hero of my own age and sex?",
+      "Did the hero take initiative and solve the problem, not just watch or wait?",
+      "Did I use the past, present and outcome, not just describe the picture?",
+      "Was the outcome positive and realistic, with no heroics or violence?",
+      "Do my stories match the person shown by my WAT, SRT and self-description?"
+    ]
+  };
+</script>
+<script src="../assets/trainer.js?v=1"></script>
+</body>
+</html>
