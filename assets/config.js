@@ -22,6 +22,6 @@ window.VICTHREE_CONFIG = {
   // Interview defaults (confirmed): ~25 questions, 75s each, ~30 min.
   interview: {
     maxQuestions: 25,
-    secondsPerQuestion: 75
+    secondsPerQuestion: 150
   }
 };

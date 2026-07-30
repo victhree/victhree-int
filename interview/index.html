@@ -79,7 +79,7 @@
 
 <footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
 
-<script src="../assets/config.js?v=1"></script>
+<script src="../assets/config.js?v=2"></script>
 <script src="../assets/store.js?v=2"></script>
 <script src="../assets/journey.js?v=2"></script>
 <script>
@@ -347,7 +347,7 @@
     if (!Store.getPiq()) { $("gate").style.display = "block"; return; }
 
     $("fact-q").textContent = MAXQ;
-    $("fact-t").textContent = SPQ + "s";
+    $("fact-t").textContent = SPQ >= 60 ? (Math.floor(SPQ / 60) + ":" + (SPQ % 60 < 10 ? "0" : "") + (SPQ % 60)) : (SPQ + "s");
     $("fact-total").textContent = "~" + Math.round(MAXQ * SPQ / 60) + "m";
     var testsTaken = Store.analysesList().length;
     $("report-note").textContent = testsTaken
