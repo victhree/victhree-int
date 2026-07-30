@@ -239,6 +239,14 @@
     clearInterval(S.tick);
     var pb=$("t-progress"); if(pb && pb.firstElementChild) pb.firstElementChild.style.width="100%";
     save();
+    // Persist the raw responses to the profile IMMEDIATELY (synchronous, no network)
+    // so the test counts as completed even if the hidden analysis is slow or fails.
+    if(typeof CFG.onComplete==="function"){
+      try{
+        var respItems=S.responses.map(function(r,i){ return { n:i+1, prompt:promptOf(r.item), title:(r.item&&r.item.title)||undefined, tag:tagOf(r.item), response:r.text, seconds:r.seconds }; });
+        CFG.onComplete(CFG.mode, respItems);
+      }catch(e){}
+    }
     buildResults();
     panel("t-results");
     if(AI) requestAI();

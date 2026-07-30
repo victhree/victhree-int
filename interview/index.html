@@ -80,7 +80,7 @@
 <footer class="site-foot"><p class="foot-note">VicThree Defence · SSB Personal Interview Trainer</p></footer>
 
 <script src="../assets/config.js?v=1"></script>
-<script src="../assets/store.js?v=1"></script>
+<script src="../assets/store.js?v=2"></script>
 <script src="../assets/journey.js?v=2"></script>
 <script>
 (function () {
@@ -113,13 +113,26 @@
 
   // Build the Perception Report silently from the saved psychology analyses.
   // It is never shown here; it feeds the interview and later the final report.
+  // Some tests may have been taken but their (hidden) analysis never saved
+  // (slow/failed fetch). Backfill those from the saved responses.
+  function backfillAnalyses() {
+    var missing = Store.missingAnalyses();
+    if (!missing.length) return Promise.resolve();
+    return Promise.all(missing.map(function (m) {
+      return post({ mode: m.test, items: m.items })
+        .then(function (d) { if (d) Store.saveAnalysis(m.test, d); })
+        .catch(function () {});
+    }));
+  }
   function ensureReport() {
     if (Store.getReport()) return Promise.resolve();
-    var list = Store.analysesList();
-    if (!list.length) return Promise.resolve(); // no tests taken — interview still runs off the PIQ
-    return post({ mode: "REPORT", analyses: list })
-      .then(function (r) { Store.setReport(r); })
-      .catch(function () {}); // proceed even if the report can't be built
+    return backfillAnalyses().then(function () {
+      var list = Store.analysesList();
+      if (!list.length) return; // no tests taken — interview still runs off the PIQ
+      return post({ mode: "REPORT", analyses: list })
+        .then(function (r) { Store.setReport(r); })
+        .catch(function () {}); // proceed even if the report can't be built
+    });
   }
 
   function ensurePlan() {

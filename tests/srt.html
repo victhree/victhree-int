@@ -87,7 +87,7 @@
 
 <script src="../assets/vendor/jspdf.umd.min.js"></script>
 <script src="../assets/config.js?v=1"></script>
-<script src="../assets/store.js?v=1"></script>
+<script src="../assets/store.js?v=2"></script>
 <script src="../assets/journey.js?v=2"></script>
 <script src="../data/srt-practice.js?v=1"></script>
 <script>
@@ -98,6 +98,7 @@
     items: window.SRT_PRACTICE,
     hideAnalysis: true,
     onAnalysis: function (mode, data) { if (window.V3Store) window.V3Store.saveAnalysis(mode, data); },
+    onComplete: function (mode, items) { if (window.V3Store) window.V3Store.saveResponses(mode, items); },
     checklist: [
       "Did I say what I would actually do, not a slogan?",
       "Is my reaction practical and within my real means?",
@@ -106,6 +107,6 @@
     ]
   };
 </script>
-<script src="../assets/trainer.js?v=2"></script>
+<script src="../assets/trainer.js?v=3"></script>
 </body>
 </html>

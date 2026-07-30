@@ -61,7 +61,7 @@
 
 <script src="../assets/vendor/jspdf.umd.min.js"></script>
 <script src="../assets/config.js?v=1"></script>
-<script src="../assets/store.js?v=1"></script>
+<script src="../assets/store.js?v=2"></script>
 <script src="../assets/journey.js?v=2"></script>
 <script>
 (function () {
@@ -78,12 +78,24 @@
       .then(function (d) { if (d && d.error) throw new Error(d.error); return d; });
   }
 
+  // Backfill any test that was taken but whose analysis never saved.
+  function backfillAnalyses() {
+    var missing = Store.missingAnalyses();
+    if (!missing.length) return Promise.resolve();
+    return Promise.all(missing.map(function (m) {
+      return post({ mode: m.test, items: m.items })
+        .then(function (d) { if (d) Store.saveAnalysis(m.test, d); })
+        .catch(function () {});
+    }));
+  }
   // Build the consolidated Perception Report if it wasn't built during the interview.
   function ensureReport() {
     if (Store.getReport()) return Promise.resolve();
-    var list = Store.analysesList();
-    if (!list.length) return Promise.resolve();
-    return post({ mode: "REPORT", analyses: list }).then(function (r) { Store.setReport(r); }).catch(function () {});
+    return backfillAnalyses().then(function () {
+      var list = Store.analysesList();
+      if (!list.length) return;
+      return post({ mode: "REPORT", analyses: list }).then(function (r) { Store.setReport(r); }).catch(function () {});
+    });
   }
 
   var TEST_NAMES = { PPDT: "Picture Perception (PPDT)", TAT: "Thematic Apperception (TAT)", WAT: "Word Association (WAT)", SRT: "Situation Reaction (SRT)", SDT: "Self-Description (SDT)" };
@@ -283,8 +295,10 @@
     if (!history().length) { $("gate").style.display = "block"; return; }
     $("controls").style.display = "block";
 
-    // Show the psychology analysis straight away (built during the interview).
+    // Show whatever psychology data we already have, then quietly fill any gaps
+    // (tests taken but analysis not yet saved) and re-render.
     renderPsychology();
+    ensureReport().then(function () { renderPsychology(); });
 
     var existing = Store.getAssessment();
     if (existing) { renderAssessment(existing); }

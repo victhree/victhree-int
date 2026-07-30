@@ -34,7 +34,8 @@
       name: name,
       createdAt: nowISO(),
       updatedAt: nowISO(),
-      analyses: {},     // { WAT:{...}, SRT:{...}, SDT:{...}, TAT:{...}, PPDT:{...} }
+      analyses: {},     // AI analysis per test { WAT:{...}, ... } (may lag or fail)
+      responses: {},    // raw responses per test { WAT:{items,savedAt}, ... } — the source of truth for "test taken"
       report: null,     // consolidated Perception Report
       piq: null,        // PIQ form JSON
       plan: null,       // interview plan
@@ -113,6 +114,30 @@
       return out;
     },
 
+    /* ---------- raw responses (saved the instant a test finishes) ---------- */
+    saveResponses: function (test, items) {
+      var d = Store.data(); if (!d) return false;
+      if (!d.responses) d.responses = {};
+      d.responses[test] = { items: items, savedAt: nowISO() };
+      return Store.save(d);
+    },
+    getResponses: function () { var d = Store.data(); return d ? (d.responses || {}) : {}; },
+    // A test counts as "taken" if it has EITHER saved responses OR an analysis.
+    testsTaken: function () {
+      var d = Store.data(); if (!d) return [];
+      var a = d.analyses || {}, r = d.responses || {}, out = [];
+      ["PPDT", "TAT", "WAT", "SRT", "SDT"].forEach(function (k) { if (a[k] || r[k]) out.push(k); });
+      return out;
+    },
+    // Tests that were taken but whose AI analysis never saved (slow/failed fetch),
+    // so the report builder can backfill them from the saved responses.
+    missingAnalyses: function () {
+      var d = Store.data(); if (!d) return [];
+      var a = d.analyses || {}, r = d.responses || {}, out = [];
+      for (var k in r) { if (r[k] && r[k].items && r[k].items.length && !a[k]) out.push({ test: k, items: r[k].items }); }
+      return out;
+    },
+
     /* ---------- Perception Report ---------- */
     setReport: function (r) { return Store.set("report", r); },
     getReport: function () { return Store.get("report"); },
@@ -150,8 +175,7 @@
       var d = Store.data();
       var TESTS = ["PPDT", "TAT", "WAT", "SRT", "SDT"];
       if (!d) return { tests: 0, testsTotal: TESTS.length, report: false, piq: false, interview: "none", assessment: false };
-      var done = 0;
-      for (var i = 0; i < TESTS.length; i++) { if (d.analyses[TESTS[i]]) done++; }
+      var done = Store.testsTaken().length;
       var iv = "none";
       if (d.assessment) iv = "done";
       else if (d.interview && d.interview.history && d.interview.history.length) iv = "in-progress";
