@@ -216,6 +216,16 @@ const IV_OFFICER = [
   "The 15 OLQs are: effective intelligence, reasoning ability, organising ability, power of expression, social adaptability, cooperation, sense of responsibility, initiative, self-confidence, speed of decision, ability to influence the group, liveliness, determination, courage, and stamina."
 ].join("\n");
 
+// Applied to every question the candidate actually hears. The report guides WHAT
+// you ask, but the candidate must never learn what is being assessed.
+const IV_NO_LEAK = [
+  "CRITICAL, how to phrase questions: use the Perception Report only SILENTLY to decide what to probe. NEVER reveal, quote, paraphrase or hint at the psychology/perception report, the candidate's OLQs, or which quality you are testing.",
+  "Do NOT say things like 'as per your psychology report', 'your report shows', 'your profile suggests', 'this tests your ...', or name any OLQ or trait in the question. No meta-commentary about assessment. Each question must sound like a natural thing an officer would simply ask a candidate."
+].join("\n");
+
+// The client asks these two itself, so the model must not (avoids duplicates).
+const IV_RESERVED = "Do NOT ask 'Why do you want to join the armed forces?' (or any 'why do you want to join / why the army/navy/air force' variant), and do NOT ask what the candidate will do if they are not recommended or do not get selected. Those two questions are reserved and asked separately.";
+
 async function ivPlan(payload, env, cors) {
   const prompt = [
     IV_OFFICER,
@@ -256,13 +266,17 @@ async function ivQuestions(payload, env, cors) {
   const prompt = [
     IV_OFFICER,
     "",
+    IV_NO_LEAK,
+    "",
     "Prepare a set of " + count + " interview questions to ask this candidate, drawn from the PIQ, the Perception Report and your plan. These are your opening/base questions; you will add follow-ups live as the candidate answers.",
     "Rules:",
     "- Each item is exactly ONE question in your own spoken words.",
     "- No two questions may be duplicates or light rewordings of each other.",
     "- Do NOT ask anything already listed under 'Already asked' below.",
+    "- " + IV_RESERVED,
     "- Cover a MIX and order them naturally: begin with rapport/personal, then PIQ facts (family, education, hobbies, games, positions of responsibility), then situational/judgement, and one or two current-affairs or opinion questions.",
     "- Ground them in this candidate's specific PIQ and profile, not generic filler.",
+    "- The 'targets' field is for internal use only and is never shown to the candidate; the 'question' text itself must contain no hint of it.",
     "",
     "Return ONLY valid JSON with this exact shape:",
     '{ "questions": [ { "question": "the question in the officer\'s words", "targets": ["PIQ:hobbies","OLQ:initiative"] } ] }',
@@ -298,9 +312,11 @@ async function ivFollowup(payload, env, cors) {
   const prompt = [
     IV_OFFICER,
     "",
+    IV_NO_LEAK,
+    "",
     "You have just heard the candidate's answer below. Silently assess it. Decide whether it is worth ONE follow-up question later in the interview.",
     "Ask a follow-up when the answer was thin, vague, evasive, memorised, or when it is inconsistent with the PIQ, the Perception Report or an earlier answer, or when it opens a genuinely interesting thread worth digging into. If the answer was clear, complete and consistent, do NOT force one.",
-    "The follow-up must be a single question in your own words, must not repeat anything already asked, and should probe the specific thing that stood out.",
+    "The follow-up must be a single question in your own words, must not repeat anything already asked, and should probe the specific thing that stood out. " + IV_RESERVED,
     "",
     "Return ONLY valid JSON, exactly one of:",
     '  { "followup": true, "question": "the follow-up question", "targets": ["OLQ:...","CONSISTENCY"] }',
@@ -347,9 +363,12 @@ async function ivNext(payload, env, cors) {
   const prompt = [
     IV_OFFICER,
     "",
+    IV_NO_LEAK,
+    "",
     "Ask the NEXT single question in this ongoing interview. Rules:",
     "- Exactly ONE question. Never ask two things at once. Keep it to what a real officer would say out loud.",
     "- Do NOT repeat or lightly reword any question already asked. Move the interview forward.",
+    "- " + IV_RESERVED,
     "- Adapt: if the last answer was thin, vague, evasive or inconsistent, follow up on it. If it was solid, move to a new area from the plan.",
     "- Mix over the whole interview: rapport/personal, PIQ facts (family, education, hobbies, games, positions of responsibility), situational/judgement, and one or two current-affairs or opinion questions.",
     "- Cross-check against the PIQ and the Perception Report; probe any inconsistency between what the candidate just said and those.",

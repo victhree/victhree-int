@@ -100,8 +100,32 @@
   //          carries `after` = history length when it was queued, so it is only
   //          served at least one question later (the officer "comes back to it").
   var T = { remaining: 0, tick: null, startTs: 0, current: null, busy: false,
-            baseQ: [], followQ: [], refilling: false, fetching: false };
+            baseQ: [], followQ: [], refilling: false, fetching: false, mandatoryAsked: {} };
   var INITIAL_BATCH = 12, REFILL_BATCH = 10, LOW_WATER = 5;
+
+  // Two questions every interview MUST include. Guaranteed here (not left to the
+  // model): "why join" comes early; "what if not recommended" is the final one.
+  // The worker is told not to ask these, so they are never duplicated.
+  var MANDATORY = [
+    { key: "join",     q: "Why do you want to join the armed forces?",                         at: 1 },
+    { key: "notclear", q: "Suppose you are not recommended this time. What will you do next?", at: MAXQ - 1 }
+  ];
+  function markMandatoryFromHistory() {
+    T.mandatoryAsked = {};
+    var hist = (Store.getInterview() || { history: [] }).history;
+    MANDATORY.forEach(function (m) {
+      if (hist.some(function (h) { return h.q === m.q; })) T.mandatoryAsked[m.key] = true;
+    });
+  }
+  function pickMandatory(pos) {
+    var last = MANDATORY[MANDATORY.length - 1];
+    if (pos >= MAXQ - 1 && !T.mandatoryAsked[last.key]) return last; // guarantee it is the final question
+    for (var i = 0; i < MANDATORY.length; i++) {
+      var m = MANDATORY[i];
+      if (!T.mandatoryAsked[m.key] && m.at < MAXQ - 1 && pos >= m.at) return m;
+    }
+    return null;
+  }
 
   /* ---------- worker calls ---------- */
   function post(payload) {
@@ -241,6 +265,9 @@
   function serveNext() {
     if (historyLen() >= MAXQ) { finishInterview(); return; }
     var now = historyLen();
+    // A mandatory question takes priority when it is due.
+    var m = pickMandatory(now);
+    if (m) { T.mandatoryAsked[m.key] = true; renderLive(m.q, null); maybeRefill(); return; }
     var q = null;
     for (var i = 0; i < T.followQ.length; i++) {
       if (T.followQ[i].after < now) { q = T.followQ.splice(i, 1)[0]; break; }
@@ -284,7 +311,8 @@
     T.current = question;
     $("live-q").textContent = question;
     $("live-a").value = "";
-    $("live-targets").textContent = (targets && targets.length) ? ("Focus: " + targets.join(" · ")) : "";
+    // Never reveal to the candidate what is being tested.
+    $("live-targets").textContent = "";
     $("live").style.display = "block";
     updateHeadCounter();
     $("live-a").focus();
@@ -327,6 +355,7 @@
     $("intro").style.display = "none";
     $("stage").style.display = "block";
     renderTranscript();
+    markMandatoryFromHistory();
     $("prep-status").style.display = "none";
     serveNext();
   }
