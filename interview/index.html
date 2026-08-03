@@ -107,8 +107,9 @@
   // model): "why join" comes early; "what if not recommended" is the final one.
   // The worker is told not to ask these, so they are never duplicated.
   var MANDATORY = [
-    { key: "join",     q: "Why do you want to join the armed forces?",                         at: 1 },
-    { key: "notclear", q: "Suppose you are not recommended this time. What will you do next?", at: MAXQ - 1 }
+    { key: "join",     q: "Why do you want to join the armed forces?",                                  at: 1 },
+    { key: "notclear", q: "Suppose you are not recommended this time. What will you do next?",          at: MAXQ - 2 },
+    { key: "closing",  q: "Before we finish, is there anything you would like to ask me or the board?", at: MAXQ - 1 }
   ];
   function markMandatoryFromHistory() {
     T.mandatoryAsked = {};
@@ -117,13 +118,15 @@
       if (hist.some(function (h) { return h.q === m.q; })) T.mandatoryAsked[m.key] = true;
     });
   }
+  // Serve mandatory questions so each lands at its slot AND the late ones are
+  // guaranteed the final slots in order (…, if-not-recommended, then closing).
   function pickMandatory(pos) {
-    var last = MANDATORY[MANDATORY.length - 1];
-    if (pos >= MAXQ - 1 && !T.mandatoryAsked[last.key]) return last; // guarantee it is the final question
-    for (var i = 0; i < MANDATORY.length; i++) {
-      var m = MANDATORY[i];
-      if (!T.mandatoryAsked[m.key] && m.at < MAXQ - 1 && pos >= m.at) return m;
-    }
+    var remaining = MAXQ - pos;
+    var unasked = MANDATORY.filter(function (m) { return !T.mandatoryAsked[m.key]; })
+                           .sort(function (a, b) { return a.at - b.at; });
+    if (!unasked.length) return null;
+    if (unasked.length >= remaining) return unasked[0];   // only enough slots left for the mandatory ones
+    if (unasked[0].at <= pos) return unasked[0];          // this one is due
     return null;
   }
 
@@ -183,6 +186,15 @@
       turn.appendChild(q); turn.appendChild(a);
       host.appendChild(turn);
     });
+    // The officer's spoken reply to the candidate's closing question, if any.
+    if (iv.closingReply) {
+      var rt = el("div", "iv-turn");
+      var rq = el("div", "iv-q");
+      rq.appendChild(el("span", "iv-who", "Interviewing Officer"));
+      rq.appendChild(document.createTextNode(iv.closingReply));
+      rt.appendChild(rq);
+      host.appendChild(rt);
+    }
     updateHeadCounter();
   }
   function updateHeadCounter() {
@@ -320,20 +332,48 @@
     startTimer();
   }
 
+  function closingQ() { var m = MANDATORY[MANDATORY.length - 1]; return m ? m.q : null; }
+
   function submitAnswer(timedOut) {
     if (T.busy || !T.current) return;
     clearInterval(T.tick);
     var used = Math.min(SPQ, Math.round((performance.now() - T.startTs) / 1000));
     var ans = $("live-a").value.trim();
+    var wasClosing = (T.current === closingQ());
     var turn = { q: T.current, a: ans, seconds: used, targets: null };
     Store.pushTurn(turn);
     T.current = null;
     renderTranscript();
+    if (wasClosing) { handleClosing(turn); return; }   // officer replies, then ends
     // Analyse this answer in the BACKGROUND and, if worth it, line up a follow-up
     // for later — without making the student wait.
     queueFollowup(turn, historyLen());
     // Serve the next question immediately from the queue (no loading wait).
     serveNext();
+  }
+
+  // After the closing question, the officer replies to whatever the candidate
+  // asked (helpfully, but never revealing how they performed), then the
+  // interview ends.
+  function handleClosing(turn) {
+    if (!turn.a || !turn.a.trim()) { finishInterview(); return; }
+    $("live").style.display = "none";
+    $("thinking").style.display = "block";
+    $("thinking").innerHTML = '<span class="spinner"></span>The officer is responding…';
+    var b = ivBase();
+    post({ mode: "IV", action: "reply", piq: b.piq, report: b.report,
+           question: turn.a, history: (Store.getInterview() || { history: [] }).history })
+      .then(function (d) {
+        $("thinking").style.display = "none";
+        $("thinking").innerHTML = '<span class="spinner"></span>The officer is considering your answer…';
+        if (d && d.reply) { var iv = Store.getInterview(); iv.closingReply = d.reply; Store.setInterview(iv); renderTranscript(); }
+        finishInterview();
+      })
+      .catch(function () {
+        $("thinking").style.display = "none";
+        $("thinking").innerHTML = '<span class="spinner"></span>The officer is considering your answer…';
+        finishInterview();
+      });
   }
 
   function finishInterview() {

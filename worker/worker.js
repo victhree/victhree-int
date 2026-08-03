@@ -150,6 +150,7 @@ async function handleInterview(payload, env, cors) {
   if (action === "questions") return await ivQuestions(payload, env, cors);
   if (action === "followup")  return await ivFollowup(payload, env, cors);
   if (action === "next")      return await ivNext(payload, env, cors);
+  if (action === "reply")     return await ivReply(payload, env, cors);
   if (action === "assess")    return await ivAssess(payload, env, cors);
   return json({ error: "Unknown IV action" }, 400, cors);
 }
@@ -228,7 +229,8 @@ const IV_RESERVED = [
   "Two topics are RESERVED and asked separately, so you must NOT ask them in ANY form or wording:",
   "(1) the candidate's motivation for joining, in any phrasing, e.g. 'why do you want to join the armed forces', 'what attracts/draws you to the Army/Navy/Air Force', 'why do you want to be an officer', 'why this service', 'what made you choose a defence career';",
   "(2) what the candidate would do if they are NOT recommended or NOT selected, e.g. 'what if you don't clear', 'what is your backup plan if not selected', 'what will you do if you fail'.",
-  "Do not ask either topic or any reworded version of it."
+  "(3) any closing invitation for the candidate to ask you or the board something, e.g. 'do you have any questions for me', 'is there anything you would like to ask the board'.",
+  "Do not ask any of these topics or any reworded version of them."
 ].join(" ");
 
 async function ivPlan(payload, env, cors) {
@@ -403,6 +405,28 @@ async function ivNext(payload, env, cors) {
   return json(out.parsed, 200, cors);
 }
 
+// The candidate asked you a question at the very end. Reply helpfully, but never
+// reveal how they performed.
+async function ivReply(payload, env, cors) {
+  const q = (payload.question || "").trim();
+  const prompt = [
+    IV_OFFICER,
+    "",
+    "The interview is over and you had invited the candidate to ask you or the board a question. The candidate's question follows. Give your spoken reply as the officer.",
+    "Reply briefly (2 to 4 sentences), warm, composed and genuinely helpful, to the best of your knowledge, the way a real interviewing officer would. Keep a natural spoken tone. Do not mention being an AI or a model.",
+    "CRITICAL: if the candidate is asking about their OWN performance or outcome, e.g. how they did, how the interview went, whether they will be recommended or selected, their marks, or for feedback, you must NOT answer or hint at any assessment. Politely decline: say results come through the official channel in due course and you are not able to share that, then wish them well. Never reveal or imply how they performed.",
+    "If the question is genuinely inappropriate or improper, do not engage with its substance; give a brief, composed redirection.",
+    "",
+    "Return ONLY valid JSON with this exact shape: { \"reply\": \"your spoken reply\" }",
+    "",
+    "=== The candidate's question ===",
+    q || "(the candidate did not actually ask anything)"
+  ].join("\n");
+  const out = await callGemini(env, textContents(prompt), 0.5);
+  if (out.error) return json(out, 502, cors);
+  return json(out.parsed, 200, cors);
+}
+
 async function ivAssess(payload, env, cors) {
   const history = Array.isArray(payload.history) ? payload.history : [];
   const transcript = history.map(function (h, i) {
@@ -414,6 +438,7 @@ async function ivAssess(payload, env, cors) {
     "",
     "The interview is over. Write an honest, constructive assessment of the candidate based on the full transcript, the PIQ and the Perception Report.",
     "Judge honesty, consistency and OLQs, not 'right answers'. Reward candour and self-awareness; note evasiveness, contradictions and gaps between what the candidate said and their PIQ or Perception Report.",
+    "The final question invited the candidate to ask you or the board something. Treat this LENIENTLY: a thoughtful or curious question is a small positive, asking nothing is perfectly fine and neutral, and only a clearly inappropriate, arrogant or foolish question should count against them. Do not over-weight this one moment.",
     "",
     "Return ONLY valid JSON with this exact shape:",
     "{",
