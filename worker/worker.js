@@ -224,7 +224,12 @@ const IV_NO_LEAK = [
 ].join("\n");
 
 // The client asks these two itself, so the model must not (avoids duplicates).
-const IV_RESERVED = "Do NOT ask 'Why do you want to join the armed forces?' (or any 'why do you want to join / why the army/navy/air force' variant), and do NOT ask what the candidate will do if they are not recommended or do not get selected. Those two questions are reserved and asked separately.";
+const IV_RESERVED = [
+  "Two topics are RESERVED and asked separately, so you must NOT ask them in ANY form or wording:",
+  "(1) the candidate's motivation for joining, in any phrasing, e.g. 'why do you want to join the armed forces', 'what attracts/draws you to the Army/Navy/Air Force', 'why do you want to be an officer', 'why this service', 'what made you choose a defence career';",
+  "(2) what the candidate would do if they are NOT recommended or NOT selected, e.g. 'what if you don't clear', 'what is your backup plan if not selected', 'what will you do if you fail'.",
+  "Do not ask either topic or any reworded version of it."
+].join(" ");
 
 async function ivPlan(payload, env, cors) {
   const prompt = [
