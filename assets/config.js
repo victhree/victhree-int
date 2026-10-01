@@ -19,7 +19,12 @@ window.VICTHREE_CONFIG = {
   // Dedicated interview-trainer Worker (Option A).
   aiEndpoint: "https://flat-lab-c707victhree-int.anmolxsharma.workers.dev",
 
-  // Interview defaults (confirmed): ~25 questions, 75s each, ~30 min.
+  // Course portal (login wall). Only portal students (tier "course") may use
+  // this site. The same signed token works across all VicThree sites.
+  portalEndpoint: "https://victhree-portal.anmolxsharma.workers.dev",
+  courseUrl: "https://victhreedefence.com",
+
+  // Interview defaults: ~20 questions, 2:30 each (a per-question maximum).
   interview: {
     maxQuestions: 20,
     secondsPerQuestion: 150

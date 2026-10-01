@@ -23,10 +23,15 @@
    ------------------------------------------------------------------ */
 
 const ALLOWED_ORIGINS = [
+  "https://interview.victhreedefence.com",   // live site (custom domain)
   "https://victhree.github.io",
   "http://localhost:8099",
   "http://127.0.0.1:8099"
 ];
+
+// Course portal. This Worker validates every request's bearer token against
+// the portal server-to-server (no CORS limit) and serves only tier "course".
+const PORTAL = "https://victhree-portal.anmolxsharma.workers.dev";
 
 const MODELS = [
   "gemini-2.5-flash",
@@ -44,6 +49,11 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
     if (origin && !ALLOWED_ORIGINS.includes(origin)) return json({ error: "Origin not allowed" }, 403, cors);
+
+    // Real enforcement: only VicThree Defence course students (tier "course")
+    // may use this Worker. Validate the bearer token against the portal.
+    const gate = await requireCourse(request);
+    if (!gate.ok) return json({ error: "not_authorised" }, gate.status, cors);
 
     let payload;
     try { payload = await request.json(); }
@@ -641,12 +651,32 @@ function buildContents(mode, items) {
 }
 
 /* ================= http helpers ================= */
+/* ================= course-token enforcement ================= */
+// Validate the request's bearer token against the portal. Allow only tier
+// "course". Called on every request, server-to-server (no CORS involved).
+async function requireCourse(request) {
+  const auth = request.headers.get("Authorization") || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return { ok: false, status: 401 };
+  let res;
+  try {
+    res = await fetch(PORTAL + "/api/me", { headers: { "Authorization": "Bearer " + m[1] } });
+  } catch (e) {
+    return { ok: false, status: 503 }; // portal unreachable -> fail closed
+  }
+  if (res.status !== 200) return { ok: false, status: (res.status === 403 ? 403 : 401) };
+  let data;
+  try { data = await res.json(); } catch (e) { return { ok: false, status: 401 }; }
+  if (data && data.tier === "course") return { ok: true };
+  return { ok: false, status: 403 };
+}
+
 function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary": "Origin"
   };
 }
